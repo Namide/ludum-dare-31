@@ -1,4 +1,6 @@
 package ld31.graphic;
+import h3d.col.Bounds;
+import h3d.col.Point;
 import ld31.gameplay.Tilemap;
 
 /**
@@ -38,9 +40,13 @@ class Render
 		engine.backgroundColor = 0xFFFFFFFF;
 		
 		var p = Tilemap.getNeutralPos();
+		s3d.camera.zoom = 4;
 		s3d.camera.up.set( 0., -1., 0. );
-		s3d.camera.pos.set( p.x, p.y, 6);
+		s3d.camera.pos.set( p.x, p.y, Tilemap.SIDE_NUM * s3d.camera.zoom );
 		s3d.camera.target.set( p.x, p.y );
+		
+		//s3d.camera.fovY = 150;
+		
 		
 		//( 0, 0, -Math.PI * 0.5 );
 		//s3d.camera.orthoBounds
