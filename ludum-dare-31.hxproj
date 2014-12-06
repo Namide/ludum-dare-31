@@ -24,7 +24,7 @@
     <option noInlineOnDebug="False" />
     <option mainClass="ld31.Main" />
     <option enabledebug="True" />
-    <option additional="-lib heaps&#xA;-dce full" />
+    <option additional="-lib heaps&#xA;-lib TweenX&#xA;-dce full" />
   </build>
   <!-- haxelib libraries -->
   <haxelib>
@@ -50,7 +50,7 @@
   <options>
     <option showHiddenPaths="False" />
     <option testMovie="Default" />
-    <option testMovieCommand="" />
+    <option testMovieCommand="bin/js.html" />
   </options>
   <!-- Plugin storage -->
   <storage />

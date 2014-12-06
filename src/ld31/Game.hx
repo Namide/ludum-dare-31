@@ -1,5 +1,7 @@
 package ld31;
+import hxd.Timer;
 import ld31.gameplay.PlayerControl;
+import ld31.gameplay.PolyominoControl;
 import ld31.gameplay.Tilemap;
 import ld31.graphic.CubeMesh;
 import ld31.graphic.PlayerMesh;
@@ -12,8 +14,11 @@ import ld31.math.Dir;
  */
 class Game
 {
-
-	var _time:UInt;
+	var _t:Float;
+	var _dt:Float;
+	var _frameTime:Float = 1/50;
+	
+	
 	var _dir:Dir;
 	
 	
@@ -32,7 +37,8 @@ class Game
 	
 	public function start()
 	{
-		_time = 0;
+		_dt = 0.;
+		_t = haxe.Timer.stamp();
 		_dir = new Dir();
 		
 		var p = Tilemap.getNeutralPos();
@@ -48,22 +54,46 @@ class Game
 		_playerMesh = new PlayerMesh( _graphic.s3d );
 		_playerMesh.scale( 0.5 );
 		
-		
-		
 		hxd.System.setLoop(mainLoop);
+		
+		
+		
+		//var pol = new PolyominoControl( 3 );
+		//pol.updateForm( new Dir(2) );
 	}
 	
 	public function mainLoop()
 	{
-		var col = _tm.getCol( Math.round(_playerControl.x), Math.round(_playerControl.y) );
-		_playerControl.update( col, _dir );
-		_playerControl.x += _playerControl.vx;
-		_playerControl.y += _playerControl.vy;
+		var dt = haxe.Timer.stamp() - _t;
+		_t += dt;
+		_dt += dt;
 		
-		_playerMesh.x = _playerControl.x;
-		_playerMesh.y = _playerControl.y;
+		while ( _dt >= _frameTime )
+		{
+			var col = _tm.getCol( Math.round(_playerControl.x), Math.round(_playerControl.y) );
+			_playerControl.updateCollides( col );
+			
+			var newDir = Dir.getDir( _playerControl.x, _playerControl.y );
+			if ( !_dir.is( newDir.get() ) )
+			{
+				_dir = newDir;
+				_graphic.rot( _dir );
+			}
+			
+			if ( _dt/_frameTime<=2 )
+			{
+				_playerMesh.x = _playerControl.x;
+				_playerMesh.y = _playerControl.y;
+				_graphic.refresh();
+			}
+			
+			_playerControl.updateControls( col, _dir );
+			_playerControl.x += _playerControl.vx;
+			_playerControl.y += _playerControl.vy;
+			
+			_dt -= _frameTime;
+		}
 		
-		_graphic.refresh();
 	}
 	
 }

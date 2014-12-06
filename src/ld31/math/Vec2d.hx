@@ -17,7 +17,7 @@ class Vec2d extends Point
 	public function cloneAndRot( dir:Dir ):Vec2d
 	{
 		var n = new Vec2d();
-		if ( dir.is(Dir.DIR_NORMAL) ) {
+		if ( dir.is(Dir.DIR_UP) ) {
 			n.x = x;
 			n.y = y;
 		}
@@ -26,9 +26,9 @@ class Vec2d extends Point
 			n.x = -y;
 			n.y = x;
 		}
-		else if ( dir.is(Dir.DIR_BOTTOM) )
+		else if ( dir.is(Dir.DIR_DOWN) )
 		{
-			n.x = x;
+			n.x = -x;
 			n.y = -y;
 		}
 		else if ( dir.is(Dir.DIR_LEFT) )

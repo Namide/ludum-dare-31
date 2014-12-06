@@ -26,6 +26,15 @@ class Tilemap
 		_staticTypes = getEmtpyGrid();
 	}
 	
+	static inline public function getNeutralX():Int
+	{
+		return Math.floor(SIDE_NUM * 0.5);
+	}
+	static inline public function getNeutralY():Int
+	{
+		return Math.floor(SIDE_NUM * 0.5);
+	}
+	
 	static public function getNeutralPos():Vec2d
 	{
 		var m:Int = Math.floor(SIDE_NUM * 0.5);
@@ -61,11 +70,11 @@ class Tilemap
 	public function getCol( x:Int, y:Int ):Contacts
 	{
 		var c = new Contacts();
-		c.on = get( x, y );
-		c.top = get( x, y - 1 );
-		c.right = get( x+1, y );
-		c.bottom = get( x, y + 1 );
-		c.left = get( x - 1, y );
+		c.on = 		get( x, y );
+		c.top = 	get( x, y-1 );
+		c.right = 	get( x+1, y );
+		c.bottom = 	get( x, y+1 );
+		c.left = 	get( x-1, y );
 		return c;
 	}
 	

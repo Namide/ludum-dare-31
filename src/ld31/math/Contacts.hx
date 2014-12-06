@@ -23,28 +23,28 @@ class Contacts
 		var nc = new Contacts();
 		nc.on = on;
 		
-		if ( dir.is(Dir.DIR_NORMAL) )
+		if ( dir.is(Dir.DIR_UP) )
 		{
 			nc.left = left;
 			nc.top = top;
 			nc.right = right;
 			nc.bottom = bottom;
 		}
-		else if ( dir.is(Dir.DIR_RIGHT) )
+		else if ( dir.is(Dir.DIR_LEFT) )
 		{
 			nc.left = bottom;
 			nc.top = left;
 			nc.right = top;
 			nc.bottom = right;
 		}
-		else if ( dir.is(Dir.DIR_BOTTOM) )
+		else if ( dir.is(Dir.DIR_DOWN) )
 		{
 			nc.left = right;
 			nc.top = bottom;
 			nc.right = left;
 			nc.bottom = top;
 		}
-		else if ( dir.is(Dir.DIR_LEFT) )
+		else if ( dir.is(Dir.DIR_RIGHT) )
 		{
 			nc.left = top;
 			nc.top = right;
@@ -52,6 +52,16 @@ class Contacts
 			nc.bottom = left;
 		}
 		return nc;
+	}
+	
+	public function toString():String
+	{
+		var s = "-----\n";
+		s += "| " + Std.string(top) + " |\n";
+		s += "|" + Std.string(left) + Std.string(on) + Std.string(right) + "|\n";
+		s += "| " + Std.string(bottom) + " |\n";
+		s += "-----";
+		return s;
 	}
 	
 }
