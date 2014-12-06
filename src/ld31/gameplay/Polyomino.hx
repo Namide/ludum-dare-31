@@ -24,7 +24,7 @@ class Polyomino
 	public function rot( dir:Dir )
 	{
 		control.updateForm( dir );
-		graphic.setRotate( 0, 0, dir.getRad() );
+		//graphic.setRotate( 0, 0, dir.getRad() );
 	}
 	
 	public function updateGhost( x:Float, y:Float, tm:Tilemap )

@@ -30,9 +30,9 @@ class PlayerControl
 	{
 		vx = 0;
 		vy = 0;
-		_run = new Vec2d( 0.2, 0 );
-		_jump = new Vec2d( 0, -0.25 );
-		_g = new Vec2d( 0, 0.04 );
+		_run = new Vec2d( 0.1, 0 );
+		_jump = new Vec2d( 0, -0.2 );
+		_g = new Vec2d( 0, 0.02 );
 		_friction = 0.7;
 		_airSlowler = 0.2;
 	}
