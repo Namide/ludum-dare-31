@@ -16,6 +16,9 @@ import ld31.math.Dir;
  */
 class Game
 {
+	
+	public static inline var POLYOMINO_TIME_SIT:Float = 1;
+	
 	var _t:Float;
 	var _dt:Float;
 	var _frameTime:Float = 1/100;
@@ -48,9 +51,18 @@ class Game
 		var p = Tilemap.getNeutralPos();
 		
 		//		NEUTRAL
-		var n = new CubeMesh( Tilemap.TYPE_NEUTRAL, _graphic.s3d );
-		n.x = p.x;
-		n.y = p.y;
+		for ( i in 0...Tilemap.SIDE_NUM_X )
+			for ( j in 0...Tilemap.SIDE_NUM_Y )
+			{
+				if ( _tm.get(i, j) == Tilemap.TYPE_NEUTRAL )
+				{
+					var n = new CubeMesh( Tilemap.TYPE_NEUTRAL, _graphic.s3d );
+					n.x = i;
+					n.y = j;
+				}
+			}
+		
+		
 		
 		//		PLAYER
 		_playerControl.x = p.x;
@@ -82,7 +94,9 @@ class Game
 			var col = _tm.getCol( Math.round(_playerControl.x), Math.round(_playerControl.y) );
 			_playerControl.updateCollides( col );
 			
-			var newDir = Dir.getDir( _playerControl.x, _playerControl.y );
+			if ( _pol != null ) _pol.updateGhost( _playerControl.x, _playerControl.y, _tm );
+			
+			var newDir = Dir.getDir( _playerControl.x, _playerControl.y, _tm, _dir );
 			if ( !_dir.is( newDir.get() ) )
 			{
 				changeDir( newDir );
@@ -106,7 +120,16 @@ class Game
 	
 	public function createPolyomino()
 	{
+		trace(_dir);
 		_pol = new Polyomino( _graphic.s3d, _dir );
+		_pol.onSitting = sitPolyomino;
+		_playerControl.onAction = _pol.sit;
+	}
+	
+	public function sitPolyomino()
+	{
+		_pol = null;
+		createPolyomino();
 	}
 	
 }

@@ -3,6 +3,8 @@ import h3d.scene.Object;
 import ld31.gameplay.Tilemap;
 import ld31.graphic.PolyominoObject;
 import ld31.math.Dir;
+import tweenx909.EaseX;
+import tweenx909.TweenX;
 
 /**
  * ...
@@ -13,22 +15,98 @@ class Polyomino
 
 	public var control:PolyominoControl;
 	public var graphic:PolyominoObject;
+	var _dir:Dir;
+	
+	var _xi:Int;
+	var _yi:Int;
+	
+	var _sitPlace:Array<Int>;
+	var _dirSitPlace:Int;
+	var _sitTime:Bool;
+	public var onSitting:Void->Void;
 	
 	public function new( parent:Object, dir:Dir ) 
 	{
 		control = new PolyominoControl();
 		graphic = new PolyominoObject( control, parent );
+		
+		_sitTime = false;
 		rot( dir );
+	}
+	
+	public function fixToTilemap( tm:Tilemap )
+	{
+		tm.addPolyomino( control.form, _sitPlace[0], _sitPlace[1] );
 	}
 	
 	public function rot( dir:Dir )
 	{
-		control.updateForm( dir );
-		//graphic.setRotate( 0, 0, dir.getRad() );
+		if ( _sitTime ) return;
+		
+		_dir = dir;
+		_xi = 
+		_yi = -100;
+	}
+	
+	public function sit()
+	{
+		if ( _sitTime ) return;
+		
+		_sitTime = true;
+		
+		var x0:Int = _sitPlace[0];
+		var y0:Int = _sitPlace[1];
+		
+		var dir = new Dir(_dirSitPlace);
+		if 		( dir.is(Dir.DIR_UP) )		y0 -= Tilemap.SIDE_NUM_Y;
+		else if ( dir.is(Dir.DIR_RIGHT) )	x0 += Tilemap.SIDE_NUM_X;
+		else if ( dir.is(Dir.DIR_DOWN) )	y0 += Tilemap.SIDE_NUM_Y;
+		else if ( dir.is(Dir.DIR_LEFT) )	x0 -= Tilemap.SIDE_NUM_X;
+		
+		graphic.setPos( x0, y0, 0 );
+		
+		TweenX.to( graphic, {x:_sitPlace[0], y:_sitPlace[1]} )
+				.time( Game.POLYOMINO_TIME_SIT )
+				//.ease( EaseX.circOut )
+				.onFinish( onSitting );
 	}
 	
 	public function updateGhost( x:Float, y:Float, tm:Tilemap )
 	{
+		if ( _sitTime ) return;
+		
+		var xi = Math.round( x - (control.form[0].length-1) * 0.5 );
+		var yi = Math.round( y - (control.form.length-1) * 0.5 );
+		
+		if ( xi == _xi && yi == _yi ) return;
+		_xi = xi;
+		_yi = yi;
+		
+		_sitPlace = tm.getPosPolContact( control.form, _dir, xi, yi );
+		_dirSitPlace = _dir.get();
+		
+		if ( _sitPlace == null )
+			graphic.visible = false;
+		else
+		{
+			graphic.visible = true;
+			graphic.setPos( _sitPlace[0]/* - Math.ceil(control.center.x)*/, _sitPlace[1]/* - Math.ceil(control.center.y)*/, 0 );
+		}
+		
+		
+		//trace(pos);
+		
+		/*var vertical:Bool = ;
+		var pos:Array<Int> = 
+		if ( vertical )
+		{
+			x -= control.center.x;
+		}
+		else
+		{
+			y -= control.center.y;
+		}*/
+		
 		//var px = 
 	}
 	

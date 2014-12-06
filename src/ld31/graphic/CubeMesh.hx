@@ -19,7 +19,6 @@ class CubeMesh extends Mesh
 	public function new( type:Int, ?parent ) 
 	{
 		super(new CubePrim(), getMat(type), parent);
-		
 	}
 	
 	static function getMat( type:Int ):MeshMaterial

@@ -59,14 +59,28 @@ class Dir
 		return (dir<0) ? ((dir%4)+4) : (dir%4);
 	}
 	
-	public static function getDir( playerX:Float, playerY:Float ):Dir
+	public static function getDir( playerX:Float, playerY:Float, tm:Tilemap, lastDir:Dir = null ):Dir
 	{
-		var d:Dir = new Dir();
+		var playerSize:Float = 1;//0.25;
+		
+		if ( lastDir.is( Dir.DIR_UP ) || lastDir.is( Dir.DIR_DOWN ) )
+		{
+			if ( playerX + playerSize < tm.bounds.xMin ) return new Dir( Dir.DIR_LEFT );
+			if ( playerX - playerSize > tm.bounds.xMax ) return new Dir( Dir.DIR_RIGHT );
+		}
+		
+		if ( lastDir.is( Dir.DIR_LEFT ) || lastDir.is( Dir.DIR_RIGHT ) )
+		{
+			if ( playerY + playerSize < tm.bounds.yMin ) return new Dir( Dir.DIR_UP );
+			if ( playerY - playerSize > tm.bounds.yMax ) return new Dir( Dir.DIR_DOWN );
+		}
+		
+		return lastDir;
+		
+		/*var d:Dir = new Dir();
 		var x = playerX - Tilemap.getNeutralX();
 		var y = playerY - Tilemap.getNeutralY();
 		
-		//var r = Math.abs(x / y);
-		//trace( x, y, r );
 		
 		if ( y > 0 && y >= hxd.Math.abs(x) )
 		{
@@ -85,7 +99,7 @@ class Dir
 			d.set( DIR_LEFT );
 		}
 		
-		return d;
+		return d;*/
 	}
 	
 	public function toString():String

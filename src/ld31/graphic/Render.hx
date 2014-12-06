@@ -32,25 +32,18 @@ class Render
 	public function rot( dir:Dir )
 	{
 		var newPos = { x:0, y:0, z:0 };
+		
 		if ( dir.is( Dir.DIR_UP ) )
-		{
 			newPos.y = -1;
-		}
 		else if ( dir.is( Dir.DIR_RIGHT ) )
-		{
 			newPos.x = 1;
-		}
 		else if ( dir.is( Dir.DIR_DOWN ) )
-		{
 			newPos.y = 1;
-		}
 		else if ( dir.is( Dir.DIR_LEFT ) )
-		{
 			newPos.x = -1;
-		}
 		
 		TweenX.to( s3d.camera.up, newPos )
-				.time( 2 )
+				.time( 0.5 )
 				.ease( EaseX.circOut );
 				//.onFinish( function():Void { sm.sysGraphic.camera2d.display.removeChild( display ); } );
 		//s3d.camera.up.set( 0., -1., 0. );
@@ -74,7 +67,7 @@ class Render
 		var p = Tilemap.getNeutralPos();
 		s3d.camera.zoom = 4;
 		s3d.camera.up.set( 0., -1., 0. );
-		s3d.camera.pos.set( p.x, p.y, Tilemap.SIDE_NUM * s3d.camera.zoom );
+		s3d.camera.pos.set( p.x, p.y, 0.5 * (Tilemap.SIDE_NUM_X + Tilemap.SIDE_NUM_Y) * s3d.camera.zoom );
 		s3d.camera.target.set( p.x, p.y );
 		
 		//s3d.camera.fovY = 150;

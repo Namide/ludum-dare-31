@@ -26,6 +26,8 @@ class PlayerControl
 	public var vx:Float;
 	public var vy:Float;
 	
+	public var onAction:Void->Void;
+	
 	public function new() 
 	{
 		vx = 0;
@@ -74,7 +76,6 @@ class PlayerControl
 		var j = _jump.cloneAndRot( dir );
 		var c = col.rot( dir );
 		
-		//trace(g);
 		
 		var onGround = false;
 		if ( c.bottom != Tilemap.TYPE_EMPTY )
@@ -150,6 +151,7 @@ class PlayerControl
 			vy += g.y;
 		}
 		
+		if( hxd.Key.isDown( hxd.Key.DOWN ) && onAction != null ) onAction();
 		//hxd.Key.isDown(hxd.Key.CTRL) && hxd.Key.isPressed(hxd.Key.F12)
 	}
 	

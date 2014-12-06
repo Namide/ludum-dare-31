@@ -13,7 +13,7 @@ class PlayerMesh extends Mesh
 
 	public function new(?parent) 
 	{
-		var prim = new GeoSphere(2);
+		var prim = new GeoSphere(3);
 		var mat = new MeshMaterial();
 		mat.color.setColor( 0x000000 );
 		

@@ -15,15 +15,17 @@ class CubePrim extends Polygon
 	
 	public function new()
 	{
+		var z = 0.5;
+		
 		var p = [
-			new Point(-.5, -.5, -.5),
-			new Point( .5, -.5, -.5),
-			new Point(-.5, .5, -.5),
-			new Point(-.5, -.5, .5),
-			new Point( .5, .5, -.5),
-			new Point( .5, -.5, .5),
-			new Point(-.5, .5, .5),
-			new Point( .5, .5, .5),
+			new Point(-.5, -.5, -z),
+			new Point( .5, -.5, -z),
+			new Point(-.5, .5, -z),
+			new Point(-.5, -.5, 0),
+			new Point( .5, .5, -z),
+			new Point( .5, -.5, 0),
+			new Point(-.5, .5, 0),
+			new Point( .5, .5, 0),
 		];
 		var idx = new hxd.IndexBuffer();
 		idx.push(0); idx.push(1); idx.push(5);

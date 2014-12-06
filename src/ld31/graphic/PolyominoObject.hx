@@ -21,8 +21,8 @@ class PolyominoObject extends Object
 			{
 				if ( f[j][i] == 0 ) continue;
 				var c:Mesh = new CubeMesh( pc.color, this );
-				c.x = i - pc.center.x;
-				c.y = j - pc.center.y;
+				c.x = i;// - pc.center.x;
+				c.y = j;// - pc.center.y;
 			}
 		
 	}

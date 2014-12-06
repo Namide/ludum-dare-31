@@ -54,11 +54,11 @@ class PolyominoControl
 	
 	public var id:Int;
 	public var color:Int;
-	public var center:h2d.col.Point;
+	//public var center:h2d.col.Point;
 	
 	public var form:Array<Array<Int>>;
 	
-	public function new( id:Int = -1, color:Int = -1, dir:Dir = null ) 
+	public function new( id:Int = -1, color:Int = -1/*, dir:Dir = null*/ ) 
 	{
 		this.id = (id < 0) ? Math.floor(Math.random() * POLYOMINOS.length ) : id;
 		
@@ -74,15 +74,17 @@ class PolyominoControl
 			this.color = color;
 		}
 		
-		if ( dir == null ) dir = new Dir();
-		updateForm(dir);
+		/*if ( dir == null ) dir = new Dir();*/
+		updateForm(new Dir());
 	}
 	
-	public function updateForm( dir:Dir )
+	function updateForm( dir:Dir )
 	{
+		//dir = new Dir(0);
+		
 		var original = POLYOMINOS[id];
 		
-		var newYL = ( dir.is(Dir.DIR_UP) 	|| dir.is(Dir.DIR_DOWN) ) ? original.length : original[0].length;
+		var newYL = ( dir.is(Dir.DIR_UP) || dir.is(Dir.DIR_DOWN) ) ? original.length : original[0].length;
 		var newXL = ( dir.is(Dir.DIR_UP) || dir.is(Dir.DIR_DOWN) ) ? original[0].length : original.length;
 		
 		var oldXL = original[0].length - 1;
@@ -94,14 +96,14 @@ class PolyominoControl
 			form[j] = [];
 			for ( i in 0...newXL )
 			{
-				if 		( dir.is(Dir.DIR_UP) ) 		form[j][i] = original[j][i];
-				else if ( dir.is(Dir.DIR_RIGHT) )	form[j][i] = original[oldYL-i][j];
-				else if ( dir.is(Dir.DIR_DOWN) )	form[j][i] = original[oldYL-j][oldXL-i];
-				else if ( dir.is(Dir.DIR_LEFT) )	form[j][i] = original[oldYL-i][j];
+				if 		( dir.is(Dir.DIR_UP) ) 		form[j][i] = (original[j][i] > 0) ? color : 0;
+				else if ( dir.is(Dir.DIR_RIGHT) )	form[j][i] = (original[oldYL-i][j] > 0) ? color : 0;
+				else if ( dir.is(Dir.DIR_DOWN) )	form[j][i] = (original[oldYL-j][oldXL-i] > 0) ? color : 0;
+				else if ( dir.is(Dir.DIR_LEFT) )	form[j][i] = (original[oldYL-i][j] > 0) ? color : 0;
 			}
 		}
 		
-		center = new h2d.col.Point( newXL*0.5, newYL*0.5 );
+		//center = new h2d.col.Point( (newXL-1)*0.5, (newYL-1)*0.5 );
 	}
 	
 	public function toString():String
