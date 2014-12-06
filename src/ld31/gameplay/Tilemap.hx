@@ -173,6 +173,7 @@ class Tilemap
 				}
 			
 		}
+		updateBB();
 	}
 	
 	/*public function hasPolContact( form:Array<Array<Int>>, dir:Dir, x:Int, y:Int ):Bool

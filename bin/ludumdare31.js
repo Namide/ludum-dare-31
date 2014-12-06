@@ -74,6 +74,23 @@ HxOverrides.iter = function(a) {
 var Lambda = function() { };
 $hxClasses["Lambda"] = Lambda;
 Lambda.__name__ = ["Lambda"];
+Lambda.count = function(it,pred) {
+	var n = 0;
+	if(pred == null) {
+		var $it0 = $iterator(it)();
+		while( $it0.hasNext() ) {
+			var _ = $it0.next();
+			n++;
+		}
+	} else {
+		var $it1 = $iterator(it)();
+		while( $it1.hasNext() ) {
+			var x = $it1.next();
+			if(pred(x)) n++;
+		}
+	}
+	return n;
+};
 Lambda.indexOf = function(it,v) {
 	var i = 0;
 	var $it0 = $iterator(it)();
@@ -143,6 +160,24 @@ Reflect.field = function(o,field) {
 		return null;
 	}
 };
+Reflect.getProperty = function(o,field) {
+	var tmp;
+	if(o == null) return null; else if(o.__properties__ && (tmp = o.__properties__["get_" + field])) return o[tmp](); else return o[field];
+};
+Reflect.setProperty = function(o,field,value) {
+	var tmp;
+	if(o.__properties__ && (tmp = o.__properties__["set_" + field])) o[tmp](value); else o[field] = value;
+};
+Reflect.fields = function(o) {
+	var a = [];
+	if(o != null) {
+		var hasOwnProperty = Object.prototype.hasOwnProperty;
+		for( var f in o ) {
+		if(f != "__id__" && f != "hx__closures__" && hasOwnProperty.call(o,f)) a.push(f);
+		}
+	}
+	return a;
+};
 Reflect.isFunction = function(f) {
 	return typeof(f) == "function" && !(f.__name__ || f.__ename__);
 };
@@ -151,6 +186,11 @@ Reflect.compare = function(a,b) {
 };
 Reflect.isEnumValue = function(v) {
 	return v != null && v.__enum__ != null;
+};
+Reflect.deleteField = function(o,field) {
+	if(!Object.prototype.hasOwnProperty.call(o,field)) return false;
+	delete(o[field]);
+	return true;
 };
 var Std = function() { };
 $hxClasses["Std"] = Std;
@@ -1322,11 +1362,7 @@ h2d.col.Point = function(x,y) {
 $hxClasses["h2d.col.Point"] = h2d.col.Point;
 h2d.col.Point.__name__ = ["h2d","col","Point"];
 h2d.col.Point.prototype = {
-	scale: function(f) {
-		this.x *= f;
-		this.y *= f;
-	}
-	,__class__: h2d.col.Point
+	__class__: h2d.col.Point
 };
 h2d.filter = {};
 h2d.filter.Filter = function() {
@@ -1717,6 +1753,7 @@ h3d.Engine.prototype = {
 		return true;
 	}
 	,__class__: h3d.Engine
+	,__properties__: {set_fullScreen:"set_fullScreen",set_debug:"set_debug"}
 };
 h3d.Indexes = function(count) {
 	this.mem = ((function($this) {
@@ -3451,6 +3488,7 @@ h3d.mat.MeshMaterial.prototype = $extend(h3d.mat.Material.prototype,{
 		return t;
 	}
 	,__class__: h3d.mat.MeshMaterial
+	,__properties__: {set_texture:"set_texture",set_blendMode:"set_blendMode"}
 });
 h3d.mat.Pass = function(name,shaders,parent) {
 	this.bits = 0;
@@ -3575,6 +3613,7 @@ h3d.mat.Pass.prototype = {
 		return this.colorMask = v;
 	}
 	,__class__: h3d.mat.Pass
+	,__properties__: {set_colorMask:"set_colorMask",set_blendAlphaOp:"set_blendAlphaOp",set_blendOp:"set_blendOp",set_blendAlphaDst:"set_blendAlphaDst",set_blendAlphaSrc:"set_blendAlphaSrc",set_blendDst:"set_blendDst",set_blendSrc:"set_blendSrc",set_depthTest:"set_depthTest",set_depthWrite:"set_depthWrite",set_culling:"set_culling"}
 };
 h3d.mat.Texture = function(w,h,flags,allocPos) {
 	var engine;
@@ -3681,6 +3720,7 @@ h3d.mat.Texture.prototype = {
 		}
 	}
 	,__class__: h3d.mat.Texture
+	,__properties__: {set_wrap:"set_wrap",set_filter:"set_filter",set_mipMap:"set_mipMap"}
 };
 h3d.pass = {};
 h3d.pass.Base = function() {
@@ -3805,6 +3845,7 @@ h3d.pass.Blur.prototype = $extend(h3d.pass.ScreenFx.prototype,{
 		if(alloc) tmp.dispose();
 	}
 	,__class__: h3d.pass.Blur
+	,__properties__: {set_sigma:"set_sigma",set_quality:"set_quality"}
 });
 var hxsl = {};
 hxsl.Shader = function() {
@@ -4103,6 +4144,7 @@ h3d.pass.Default.prototype = $extend(h3d.pass.Base.prototype,{
 		this.set_pixelSize(new h3d.Vector(2 / this.ctx.engine.width,2 / this.ctx.engine.height));
 	}
 	,__class__: h3d.pass.Default
+	,__properties__: {set_globalModelViewInverse:"set_globalModelViewInverse",set_globalModelView:"set_globalModelView",set_pixelSize:"set_pixelSize",set_globalTime:"set_globalTime",set_cameraInverseViewProj:"set_cameraInverseViewProj",set_cameraViewProj:"set_cameraViewProj",set_cameraProjDiag:"set_cameraProjDiag",set_cameraPos:"set_cameraPos",set_cameraProj:"set_cameraProj",set_cameraView:"set_cameraView"}
 });
 h3d.pass.Depth = function() {
 	this.reduceSize = 0;
@@ -4294,6 +4336,7 @@ h3d.pass.ShadowMap.prototype = $extend(h3d.pass.Default.prototype,{
 		return passes;
 	}
 	,__class__: h3d.pass.ShadowMap
+	,__properties__: $extend(h3d.pass.Default.prototype.__properties__,{set_size:"set_size"})
 });
 h3d.prim = {};
 h3d.prim.Primitive = function() { };
@@ -4555,6 +4598,11 @@ h3d.scene.Object.prototype = {
 		if(b) this.flags |= 4; else this.flags &= ~4;
 		return b;
 	}
+	,set_visible: function(b) {
+		this.set_culled(!b);
+		if(b) this.flags |= 2; else this.flags &= ~2;
+		return b;
+	}
 	,getInvPos: function() {
 		if(this.invPos == null) {
 			this.invPos = new h3d.Matrix();
@@ -4720,6 +4768,22 @@ h3d.scene.Object.prototype = {
 		true;
 		return v;
 	}
+	,setPos: function(x,y,z) {
+		this.x = x;
+		this.flags |= 1;
+		true;
+		x;
+		this.y = y;
+		this.flags |= 1;
+		true;
+		y;
+		this.z = z;
+		this.flags |= 1;
+		true;
+		z;
+		this.flags |= 1;
+		true;
+	}
 	,scale: function(v) {
 		var _g = this;
 		_g.set_scaleX(_g.scaleX * v);
@@ -4734,6 +4798,7 @@ h3d.scene.Object.prototype = {
 		return Type.getClassName(Type.getClass(this)).split(".").pop() + (this.name == null?"":"(" + this.name + ")");
 	}
 	,__class__: h3d.scene.Object
+	,__properties__: {set_visible:"set_visible",set_culled:"set_culled",set_posChanged:"set_posChanged",set_scaleZ:"set_scaleZ",set_scaleY:"set_scaleY",set_scaleX:"set_scaleX",set_y:"set_y",set_x:"set_x"}
 };
 h3d.scene.Light = function() {
 	this.priority = 0;
@@ -5110,6 +5175,7 @@ h3d.shader.Base2d.prototype = $extend(hxsl.Shader.prototype,{
 		return null;
 	}
 	,__class__: h3d.shader.Base2d
+	,__properties__: {set_isRelative:"set_isRelative",set_pixelAlign:"set_pixelAlign"}
 });
 h3d.shader.BaseMesh = function() {
 	this.color__ = new h3d.Vector();
@@ -5199,6 +5265,7 @@ h3d.shader.Blur.prototype = $extend(h3d.shader.ScreenShader.prototype,{
 		return null;
 	}
 	,__class__: h3d.shader.Blur
+	,__properties__: {set_isDepth:"set_isDepth",set_Quality:"set_Quality"}
 });
 h3d.shader.ShaderBuffers = function(s) {
 	var this1;
@@ -5778,7 +5845,12 @@ haxe.Timer.stamp = function() {
 	return new Date().getTime() / 1000;
 };
 haxe.Timer.prototype = {
-	run: function() {
+	stop: function() {
+		if(this.id == null) return;
+		clearInterval(this.id);
+		this.id = null;
+	}
+	,run: function() {
 	}
 	,__class__: haxe.Timer
 };
@@ -6585,6 +6657,9 @@ haxe.ds.ObjectMap.prototype = {
 		this.h[id] = value;
 		this.h.__keys__[id] = key;
 	}
+	,get: function(key) {
+		return this.h[key.__id__];
+	}
 	,remove: function(key) {
 		var id = key.__id__;
 		if(this.h.__keys__[id] == null) return false;
@@ -7141,6 +7216,7 @@ hxd.Stage.prototype = {
 		}
 	}
 	,__class__: hxd.Stage
+	,__properties__: {get_mouseY:"get_mouseY",get_mouseX:"get_mouseX",get_height:"get_height",get_width:"get_width"}
 };
 hxd.Cursor = $hxClasses["hxd.Cursor"] = { __ename__ : true, __constructs__ : ["Default","Button","Move","TextInput","Hide","Custom"] };
 hxd.Cursor.Default = ["Default",0];
@@ -7163,6 +7239,7 @@ hxd.Cursor.__empty_constructs__ = [hxd.Cursor.Default,hxd.Cursor.Button,hxd.Curs
 hxd.System = function() { };
 $hxClasses["hxd.System"] = hxd.System;
 hxd.System.__name__ = ["hxd","System"];
+hxd.System.__properties__ = {get_isWindowed:"get_isWindowed"}
 hxd.System.loopFunc = function() {
 	var $window = window;
 	var rqf = $window.requestAnimationFrame || $window.webkitRequestAnimationFrame || $window.mozRequestAnimationFrame;
@@ -13848,6 +13925,7 @@ js.html._CanvasElement.CanvasUtil.getContextWebGL = function(canvas,attribs) {
 };
 var ld31 = {};
 ld31.Game = function() {
+	this._frameTime = 0.01;
 	this._tm = new ld31.gameplay.Tilemap();
 	this._playerControl = new ld31.gameplay.PlayerControl();
 	this._graphic = new ld31.graphic.Render($bind(this,this.start));
@@ -13856,26 +13934,72 @@ $hxClasses["ld31.Game"] = ld31.Game;
 ld31.Game.__name__ = ["ld31","Game"];
 ld31.Game.prototype = {
 	start: function() {
-		this._time = 0;
+		this._dt = 0.;
+		this._t = haxe.Timer.stamp();
 		this._dir = new ld31.math.Dir();
 		var p = ld31.gameplay.Tilemap.getNeutralPos();
-		var n = new ld31.graphic.CubeMesh(1,this._graphic.s3d);
-		n.set_x(p.x);
-		n.set_y(p.y);
+		var _g = 0;
+		while(_g < 14) {
+			var i = _g++;
+			var _g1 = 0;
+			while(_g1 < 14) {
+				var j = _g1++;
+				if(this._tm.get(i,j) == 1) {
+					var n = new ld31.graphic.CubeMesh(1,this._graphic.s3d);
+					n.x = i;
+					n.flags |= 1;
+					true;
+					i;
+					n.y = j;
+					n.flags |= 1;
+					true;
+					j;
+				}
+			}
+		}
 		this._playerControl.x = p.x;
 		this._playerControl.y = p.y - 1;
 		this._playerMesh = new ld31.graphic.PlayerMesh(this._graphic.s3d);
 		this._playerMesh.scale(0.5);
 		hxd.System.setLoop($bind(this,this.mainLoop));
+		this.createPolyomino();
+	}
+	,changeDir: function(newDir) {
+		this._dir = newDir;
+		this._graphic.rot(this._dir);
+		this._pol.rot(this._dir);
 	}
 	,mainLoop: function() {
-		var col = this._tm.getCol(Math.round(this._playerControl.x),Math.round(this._playerControl.y));
-		this._playerControl.update(col,this._dir);
-		this._playerControl.x += this._playerControl.vx;
-		this._playerControl.y += this._playerControl.vy;
-		this._playerMesh.set_x(this._playerControl.x);
-		this._playerMesh.set_y(this._playerControl.y);
-		this._graphic.refresh();
+		var dt = haxe.Timer.stamp() - this._t;
+		this._t += dt;
+		this._dt += dt;
+		while(this._dt >= this._frameTime) {
+			var col = this._tm.getCol(Math.round(this._playerControl.x),Math.round(this._playerControl.y));
+			this._playerControl.updateCollides(col);
+			if(this._pol != null) this._pol.updateGhost(this._playerControl.x,this._playerControl.y,this._tm);
+			var newDir = ld31.math.Dir.getDir(this._playerControl.x,this._playerControl.y,this._tm,this._dir);
+			if(!(this._dir._dir == newDir._dir)) this.changeDir(newDir);
+			if(this._dt / this._frameTime <= 2) {
+				this._playerMesh.set_x(this._playerControl.x);
+				this._playerMesh.set_y(this._playerControl.y);
+				this._graphic.refresh();
+			}
+			this._playerControl.updateControls(col,this._dir);
+			this._playerControl.x += this._playerControl.vx;
+			this._playerControl.y += this._playerControl.vy;
+			this._dt -= this._frameTime;
+		}
+	}
+	,createPolyomino: function() {
+		console.log(this._dir);
+		this._pol = new ld31.gameplay.Polyomino(this._graphic.s3d,this._dir);
+		this._pol.onSitting = $bind(this,this.sitPolyomino);
+		this._playerControl.onAction = ($_=this._pol,$bind($_,$_.sit));
+	}
+	,sitPolyomino: function() {
+		this._pol.fixToTilemap(this._tm);
+		this._pol = null;
+		this.createPolyomino();
 	}
 	,__class__: ld31.Game
 };
@@ -13889,20 +14013,52 @@ ld31.gameplay = {};
 ld31.gameplay.PlayerControl = function() {
 	this.vx = 0;
 	this.vy = 0;
-	this._run = new ld31.math.Vec2d(1,0);
-	this._jump = new ld31.math.Vec2d(0,-5);
-	this._g = new ld31.math.Vec2d(0,1);
+	this._run = new ld31.math.Vec2d(0.3,0);
+	this._jump = new ld31.math.Vec2d(0,-0.3);
+	this._g = new ld31.math.Vec2d(0,0.02);
+	this._friction = 0.7;
 	this._airSlowler = 0.2;
 };
 $hxClasses["ld31.gameplay.PlayerControl"] = ld31.gameplay.PlayerControl;
 ld31.gameplay.PlayerControl.__name__ = ["ld31","gameplay","PlayerControl"];
 ld31.gameplay.PlayerControl.prototype = {
-	update: function(col,dir) {
+	updateCollides: function(c) {
+		if(c.top != 0 && this.y - Math.round(this.y) <= 0) {
+			if(this.vy < 0) this.vy = 0;
+			this.y = Math.round(this.y);
+		}
+		if(c.bottom != 0 && this.y - Math.round(this.y) >= 0) {
+			if(this.vy > 0) this.vy = 0;
+			this.y = Math.round(this.y);
+		}
+		if(c.left != 0 && this.x - Math.round(this.x) <= 0) {
+			if(this.vx < 0) this.vx = 0;
+			this.x = Math.round(this.x);
+		}
+		if(c.right != 0 && this.x - Math.round(this.x) >= 0) {
+			if(this.vx > 0) this.vx = 0;
+			this.x = Math.round(this.x);
+		}
+	}
+	,updateControls: function(col,dir) {
 		var r = this._run.cloneAndRot(dir);
 		var g = this._g.cloneAndRot(dir);
 		var j = this._jump.cloneAndRot(dir);
 		var c = col.rot(dir);
-		if(col.bottom != 0) {
+		var onGround = false;
+		if(c.bottom != 0) {
+			if(dir._dir == ld31.math.Dir.DIR_UP) {
+				if(this.y - Math.round(this.y) >= 0) onGround = true;
+			} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
+				if(this.x - Math.round(this.x) <= 0) onGround = true;
+			} else if(dir._dir == ld31.math.Dir.DIR_DOWN) {
+				if(this.y - Math.round(this.y) <= 0) onGround = true;
+			} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
+				if(this.x - Math.round(this.x) >= 0) onGround = true;
+			}
+		}
+		if(dir._dir == ld31.math.Dir.DIR_LEFT || dir._dir == ld31.math.Dir.DIR_RIGHT) this.vy *= this._friction; else this.vx *= this._friction;
+		if(onGround) {
 			if(hxd.Key.isDown(37)) {
 				r.x *= -1;
 				r.y *= -1;
@@ -13917,7 +14073,6 @@ ld31.gameplay.PlayerControl.prototype = {
 				this.vy = this.applyMove(this.vy,j.y,1.0,true);
 			}
 		} else {
-			r.scale(this._airSlowler);
 			if(hxd.Key.isDown(37)) {
 				r.x *= -1;
 				r.y *= -1;
@@ -13930,6 +14085,7 @@ ld31.gameplay.PlayerControl.prototype = {
 			this.vx += g.x;
 			this.vy += g.y;
 		}
+		if(hxd.Key.isDown(40) && this.onAction != null) this.onAction();
 	}
 	,applyMove: function(v0,v1,acc,maximum) {
 		if(maximum == null) maximum = false;
@@ -13949,33 +14105,200 @@ ld31.gameplay.PlayerControl.prototype = {
 	}
 	,__class__: ld31.gameplay.PlayerControl
 };
+ld31.gameplay.Polyomino = function(parent,dir) {
+	this.control = new ld31.gameplay.PolyominoControl();
+	this.graphic = new ld31.graphic.PolyominoObject(this.control,parent);
+	this._sitTime = false;
+	this.rot(dir);
+};
+$hxClasses["ld31.gameplay.Polyomino"] = ld31.gameplay.Polyomino;
+ld31.gameplay.Polyomino.__name__ = ["ld31","gameplay","Polyomino"];
+ld31.gameplay.Polyomino.prototype = {
+	fixToTilemap: function(tm) {
+		tm.addPolyomino(this.control.form,this._sitPlace[0],this._sitPlace[1]);
+	}
+	,rot: function(dir) {
+		if(this._sitTime) return;
+		this._dir = dir;
+		this._xi = this._yi = -100;
+	}
+	,sit: function() {
+		if(this._sitTime) return;
+		this._sitTime = true;
+		var x0 = this._sitPlace[0];
+		var y0 = this._sitPlace[1];
+		var dir = new ld31.math.Dir(this._dirSitPlace);
+		if(dir._dir == ld31.math.Dir.DIR_UP) y0 -= 14; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) x0 += 14; else if(dir._dir == ld31.math.Dir.DIR_DOWN) y0 += 14; else if(dir._dir == ld31.math.Dir.DIR_LEFT) x0 -= 14;
+		this.graphic.setPos(x0,y0,0);
+		tweenx909.TweenX.to(this.graphic,{ x : this._sitPlace[0], y : this._sitPlace[1]},null,null,null,null,null,null,null,null,{ fileName : "Polyomino.hx", lineNumber : 68, className : "ld31.gameplay.Polyomino", methodName : "sit"}).time(1).onFinish(this.onSitting);
+	}
+	,updateGhost: function(x,y,tm) {
+		if(this._sitTime) return;
+		var xi = Math.round(x - (this.control.form[0].length - 1) * 0.5);
+		var yi = Math.round(y - (this.control.form.length - 1) * 0.5);
+		if(xi == this._xi && yi == this._yi) return;
+		this._xi = xi;
+		this._yi = yi;
+		this._sitPlace = tm.getPosPolContact(this.control.form,this._dir,xi,yi);
+		this._dirSitPlace = this._dir._dir;
+		if(this._sitPlace == null) this.graphic.set_visible(false); else {
+			this.graphic.set_visible(true);
+			this.graphic.setPos(this._sitPlace[0],this._sitPlace[1],0);
+		}
+	}
+	,__class__: ld31.gameplay.Polyomino
+};
+ld31.gameplay.PolyominoControl = function(id,color) {
+	if(color == null) color = -1;
+	if(id == null) id = -1;
+	if(id < 0) this.id = Math.floor(Math.random() * ld31.gameplay.PolyominoControl.POLYOMINOS.length); else this.id = id;
+	if(color < 0) {
+		var col = Math.floor(Math.random() * 3);
+		if(col == 0) this.color = 2; else if(col == 1) this.color = 3; else this.color = 4;
+	} else this.color = color;
+	this.updateForm(new ld31.math.Dir());
+};
+$hxClasses["ld31.gameplay.PolyominoControl"] = ld31.gameplay.PolyominoControl;
+ld31.gameplay.PolyominoControl.__name__ = ["ld31","gameplay","PolyominoControl"];
+ld31.gameplay.PolyominoControl.prototype = {
+	updateForm: function(dir) {
+		var original = ld31.gameplay.PolyominoControl.POLYOMINOS[this.id];
+		var newYL;
+		if(dir._dir == ld31.math.Dir.DIR_UP || dir._dir == ld31.math.Dir.DIR_DOWN) newYL = original.length; else newYL = original[0].length;
+		var newXL;
+		if(dir._dir == ld31.math.Dir.DIR_UP || dir._dir == ld31.math.Dir.DIR_DOWN) newXL = original[0].length; else newXL = original.length;
+		var oldXL = original[0].length - 1;
+		var oldYL = original.length - 1;
+		this.form = [];
+		var _g = 0;
+		while(_g < newYL) {
+			var j = _g++;
+			this.form[j] = [];
+			var _g1 = 0;
+			while(_g1 < newXL) {
+				var i = _g1++;
+				if(dir._dir == ld31.math.Dir.DIR_UP) if(original[j][i] > 0) this.form[j][i] = this.color; else this.form[j][i] = 0; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) if(original[oldYL - i][j] > 0) this.form[j][i] = this.color; else this.form[j][i] = 0; else if(dir._dir == ld31.math.Dir.DIR_DOWN) if(original[oldYL - j][oldXL - i] > 0) this.form[j][i] = this.color; else this.form[j][i] = 0; else if(dir._dir == ld31.math.Dir.DIR_LEFT) if(original[oldYL - i][j] > 0) this.form[j][i] = this.color; else this.form[j][i] = 0;
+			}
+		}
+	}
+	,__class__: ld31.gameplay.PolyominoControl
+};
 ld31.gameplay.Tilemap = function() {
 	this._staticTypes = ld31.gameplay.Tilemap.getEmtpyGrid();
+	this.bounds = new ld31.math.Bounds();
+	this.updateBB();
 };
 $hxClasses["ld31.gameplay.Tilemap"] = ld31.gameplay.Tilemap;
 ld31.gameplay.Tilemap.__name__ = ["ld31","gameplay","Tilemap"];
 ld31.gameplay.Tilemap.getNeutralPos = function() {
-	var m = Math.floor(3.5);
-	return new ld31.math.Vec2d(m,m);
+	var mX = Math.floor(7.);
+	var mY = Math.floor(7.);
+	return new ld31.math.Vec2d(mX,mY);
 };
 ld31.gameplay.Tilemap.getEmtpyGrid = function() {
 	var a = [];
 	var _g = 0;
-	while(_g < 7) {
+	while(_g < 14) {
 		var i = _g++;
 		a[i] = [];
 		var _g1 = 0;
-		while(_g1 < 7) {
+		while(_g1 < 14) {
 			var j = _g1++;
 			a[i][j] = 0;
 		}
 	}
-	var m = Math.floor(3.5);
-	a[m][m] = 1;
+	var mX = Math.floor(7.);
+	var mY = Math.floor(7.);
+	a[mX][mY] = 1;
+	a[mX][mY + 1] = 1;
 	return a;
 };
 ld31.gameplay.Tilemap.prototype = {
-	getCol: function(x,y) {
+	updateBB: function() {
+		this.bounds.xMin = 100;
+		this.bounds.yMin = 100;
+		this.bounds.xMax = -100;
+		this.bounds.yMax = -100;
+		var _g = 0;
+		while(_g < 14) {
+			var j = _g++;
+			var _g1 = 0;
+			while(_g1 < 14) {
+				var i = _g1++;
+				if(this.get(i,j) != 0) {
+					if(j < this.bounds.yMin) this.bounds.yMin = j;
+					if(i < this.bounds.xMin) this.bounds.xMin = i;
+					if(j > this.bounds.yMax) this.bounds.yMax = j;
+					if(i > this.bounds.xMax) this.bounds.xMax = i;
+				}
+			}
+		}
+		console.log(this.bounds);
+	}
+	,getPosPolContact: function(form,dir,x,y) {
+		if(dir._dir == ld31.math.Dir.DIR_UP) {
+			var _g = -form.length;
+			while(_g < 14) {
+				var j = _g++;
+				if(this.hasPolContact(form,x,j)) return [x,j - 1];
+			}
+		} else if(dir._dir == ld31.math.Dir.DIR_DOWN) {
+			var j1 = 13;
+			var min = -form.length - 1;
+			while(--j1 > min) if(this.hasPolContact(form,x,j1)) return [x,j1 + 1];
+		} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
+			var _g1 = -form[0].length;
+			while(_g1 < 14) {
+				var i = _g1++;
+				if(this.hasPolContact(form,i,y)) return [i - 1,y];
+			}
+		} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
+			var i1 = 13;
+			var min1 = -form[0].length - 1;
+			while(--i1 > min1) if(this.hasPolContact(form,i1,y)) return [i1 + 1,y];
+		}
+		return null;
+	}
+	,hasPolContact: function(form,x,y) {
+		var _g1 = y;
+		var _g = y + form.length;
+		while(_g1 < _g) {
+			var j = _g1++;
+			if(j > -1 && j < this._staticTypes.length) {
+				var _g3 = x;
+				var _g2 = x + form[0].length;
+				while(_g3 < _g2) {
+					var i = _g3++;
+					if(i > -1 && i < this._staticTypes[j].length) {
+						if(this._staticTypes[j][i] != 0 && form[j - y][i - x] != 0) return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	,addPolyomino: function(form,x,y) {
+		var _g1 = y;
+		var _g = y + form.length;
+		while(_g1 < _g) {
+			var j = _g1++;
+			if(j > -1 && j < this._staticTypes.length) {
+				var _g3 = x;
+				var _g2 = x + form[0].length;
+				while(_g3 < _g2) {
+					var i = _g3++;
+					if(i > -1 && i < this._staticTypes[j].length) {
+						if(this._staticTypes[j][i] == 0 && form[j - y][i - x] != 0) {
+							console.log("ok");
+							this._staticTypes[j][i] = form[j - y][i - x];
+						}
+					}
+				}
+			}
+		}
+		this.updateBB();
+	}
+	,getCol: function(x,y) {
 		var c = new ld31.math.Contacts();
 		c.on = this.get(x,y);
 		c.top = this.get(x,y - 1);
@@ -13986,7 +14309,7 @@ ld31.gameplay.Tilemap.prototype = {
 	}
 	,get: function(x,y) {
 		var rep;
-		if(x > -1 && y > -1 && x < 7 && y < 7) rep = this._staticTypes[x][y]; else rep = 0;
+		if(x > -1 && y > -1 && x < 14 && y < 14) rep = this._staticTypes[y][x]; else rep = 0;
 		return rep;
 	}
 	,__class__: ld31.gameplay.Tilemap
@@ -14028,7 +14351,8 @@ ld31.graphic.CubeMesh.prototype = $extend(h3d.scene.Mesh.prototype,{
 	__class__: ld31.graphic.CubeMesh
 });
 ld31.graphic.CubePrim = function() {
-	var p = [new h3d.col.Point(-.5,-.5,-.5),new h3d.col.Point(.5,-.5,-.5),new h3d.col.Point(-.5,.5,-.5),new h3d.col.Point(-.5,-.5,.5),new h3d.col.Point(.5,.5,-.5),new h3d.col.Point(.5,-.5,.5),new h3d.col.Point(-.5,.5,.5),new h3d.col.Point(.5,.5,.5)];
+	var z = 0.5;
+	var p = [new h3d.col.Point(-.5,-.5,-z),new h3d.col.Point(.5,-.5,-z),new h3d.col.Point(-.5,.5,-z),new h3d.col.Point(-.5,-.5,0),new h3d.col.Point(.5,.5,-z),new h3d.col.Point(.5,-.5,0),new h3d.col.Point(-.5,.5,0),new h3d.col.Point(.5,.5,0)];
 	var idx;
 	var this1;
 	this1 = new Array(0);
@@ -14078,7 +14402,7 @@ ld31.graphic.CubePrim.prototype = $extend(h3d.prim.Polygon.prototype,{
 	__class__: ld31.graphic.CubePrim
 });
 ld31.graphic.PlayerMesh = function(parent) {
-	var prim = new h3d.prim.GeoSphere(2);
+	var prim = new h3d.prim.GeoSphere(3);
 	var mat = new h3d.mat.MeshMaterial();
 	mat.mshader.color__.setColor(0,null);
 	h3d.scene.Mesh.call(this,prim,mat,parent);
@@ -14089,6 +14413,36 @@ ld31.graphic.PlayerMesh.__super__ = h3d.scene.Mesh;
 ld31.graphic.PlayerMesh.prototype = $extend(h3d.scene.Mesh.prototype,{
 	__class__: ld31.graphic.PlayerMesh
 });
+ld31.graphic.PolyominoObject = function(pc,parent) {
+	h3d.scene.Object.call(this,parent);
+	var f = pc.form;
+	var _g1 = 0;
+	var _g = f.length;
+	while(_g1 < _g) {
+		var j = _g1++;
+		var _g3 = 0;
+		var _g2 = f[j].length;
+		while(_g3 < _g2) {
+			var i = _g3++;
+			if(f[j][i] == 0) continue;
+			var c = new ld31.graphic.CubeMesh(pc.color,this);
+			c.x = i;
+			c.flags |= 1;
+			true;
+			i;
+			c.y = j;
+			c.flags |= 1;
+			true;
+			j;
+		}
+	}
+};
+$hxClasses["ld31.graphic.PolyominoObject"] = ld31.graphic.PolyominoObject;
+ld31.graphic.PolyominoObject.__name__ = ["ld31","graphic","PolyominoObject"];
+ld31.graphic.PolyominoObject.__super__ = h3d.scene.Object;
+ld31.graphic.PolyominoObject.prototype = $extend(h3d.scene.Object.prototype,{
+	__class__: ld31.graphic.PolyominoObject
+});
 ld31.graphic.Render = function(callb) {
 	this._onInit = callb;
 	this.engine = this.engine = new h3d.Engine();
@@ -14098,7 +14452,12 @@ ld31.graphic.Render = function(callb) {
 $hxClasses["ld31.graphic.Render"] = ld31.graphic.Render;
 ld31.graphic.Render.__name__ = ["ld31","graphic","Render"];
 ld31.graphic.Render.prototype = {
-	onResize: function() {
+	rot: function(dir) {
+		var newPos = { x : 0, y : 0, z : 0};
+		if(dir._dir == ld31.math.Dir.DIR_UP) newPos.y = -1; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) newPos.x = 1; else if(dir._dir == ld31.math.Dir.DIR_DOWN) newPos.y = 1; else if(dir._dir == ld31.math.Dir.DIR_LEFT) newPos.x = -1;
+		tweenx909.TweenX.to(this.s3d.camera.up,newPos,null,null,null,null,null,null,null,null,{ fileName : "Render.hx", lineNumber : 45, className : "ld31.graphic.Render", methodName : "rot"}).time(0.5).ease(tweenx909.EaseX.circOut);
+	}
+	,onResize: function() {
 	}
 	,setup: function() {
 		var _g = this;
@@ -14113,7 +14472,7 @@ ld31.graphic.Render.prototype = {
 		var p = ld31.gameplay.Tilemap.getNeutralPos();
 		this.s3d.camera.zoom = 4;
 		this.s3d.camera.up.set(0.,-1.,0.,null);
-		this.s3d.camera.pos.set(p.x,p.y,7 * this.s3d.camera.zoom,null);
+		this.s3d.camera.pos.set(p.x,p.y,14. * this.s3d.camera.zoom,null);
 		this.s3d.camera.target.set(p.x,p.y,null,null);
 		this._onInit();
 		hxd.Key.initialize();
@@ -14124,6 +14483,13 @@ ld31.graphic.Render.prototype = {
 	,__class__: ld31.graphic.Render
 };
 ld31.math = {};
+ld31.math.Bounds = function() {
+};
+$hxClasses["ld31.math.Bounds"] = ld31.math.Bounds;
+ld31.math.Bounds.__name__ = ["ld31","math","Bounds"];
+ld31.math.Bounds.prototype = {
+	__class__: ld31.math.Bounds
+};
 ld31.math.Contacts = function() {
 };
 $hxClasses["ld31.math.Contacts"] = ld31.math.Contacts;
@@ -14132,22 +14498,22 @@ ld31.math.Contacts.prototype = {
 	rot: function(dir) {
 		var nc = new ld31.math.Contacts();
 		nc.on = this.on;
-		if(dir._dir == ld31.math.Dir.DIR_NORMAL) {
+		if(dir._dir == ld31.math.Dir.DIR_UP) {
 			nc.left = this.left;
 			nc.top = this.top;
 			nc.right = this.right;
 			nc.bottom = this.bottom;
-		} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
+		} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
 			nc.left = this.bottom;
 			nc.top = this.left;
 			nc.right = this.top;
 			nc.bottom = this.right;
-		} else if(dir._dir == ld31.math.Dir.DIR_BOTTOM) {
+		} else if(dir._dir == ld31.math.Dir.DIR_DOWN) {
 			nc.left = this.right;
 			nc.top = this.bottom;
 			nc.right = this.left;
 			nc.bottom = this.top;
-		} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
+		} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
 			nc.left = this.top;
 			nc.top = this.right;
 			nc.right = this.bottom;
@@ -14159,10 +14525,22 @@ ld31.math.Contacts.prototype = {
 };
 ld31.math.Dir = function(dir) {
 	if(dir == null) dir = 0;
-	if(dir < 0) this._dir = dir % 3 + 4; else this._dir = dir % 3;
+	if(dir < 0) this._dir = dir % 4 + 4; else this._dir = dir % 4;
 };
 $hxClasses["ld31.math.Dir"] = ld31.math.Dir;
 ld31.math.Dir.__name__ = ["ld31","math","Dir"];
+ld31.math.Dir.getDir = function(playerX,playerY,tm,lastDir) {
+	var playerSize = 1;
+	if(lastDir._dir == ld31.math.Dir.DIR_UP || lastDir._dir == ld31.math.Dir.DIR_DOWN) {
+		if(playerX + playerSize < tm.bounds.xMin) return new ld31.math.Dir(ld31.math.Dir.DIR_LEFT);
+		if(playerX - playerSize > tm.bounds.xMax) return new ld31.math.Dir(ld31.math.Dir.DIR_RIGHT);
+	}
+	if(lastDir._dir == ld31.math.Dir.DIR_LEFT || lastDir._dir == ld31.math.Dir.DIR_RIGHT) {
+		if(playerY + playerSize < tm.bounds.yMin) return new ld31.math.Dir(ld31.math.Dir.DIR_UP);
+		if(playerY - playerSize > tm.bounds.yMax) return new ld31.math.Dir(ld31.math.Dir.DIR_DOWN);
+	}
+	return lastDir;
+};
 ld31.math.Dir.prototype = {
 	__class__: ld31.math.Dir
 };
@@ -14177,14 +14555,14 @@ ld31.math.Vec2d.__super__ = h2d.col.Point;
 ld31.math.Vec2d.prototype = $extend(h2d.col.Point.prototype,{
 	cloneAndRot: function(dir) {
 		var n = new ld31.math.Vec2d();
-		if(dir._dir == ld31.math.Dir.DIR_NORMAL) {
+		if(dir._dir == ld31.math.Dir.DIR_UP) {
 			n.x = this.x;
 			n.y = this.y;
 		} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
 			n.x = -this.y;
 			n.y = this.x;
-		} else if(dir._dir == ld31.math.Dir.DIR_BOTTOM) {
-			n.x = this.x;
+		} else if(dir._dir == ld31.math.Dir.DIR_DOWN) {
+			n.x = -this.x;
 			n.y = -this.y;
 		} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
 			n.x = this.y;
@@ -14194,6 +14572,1201 @@ ld31.math.Vec2d.prototype = $extend(h2d.col.Point.prototype,{
 	}
 	,__class__: ld31.math.Vec2d
 });
+var tweenx909 = {};
+tweenx909.EaseX = function() { };
+$hxClasses["tweenx909.EaseX"] = tweenx909.EaseX;
+tweenx909.EaseX.__name__ = ["tweenx909","EaseX"];
+tweenx909.EaseX.linear = function(t) {
+	return t;
+};
+tweenx909.EaseX.circOut = function(t) {
+	return Math.sqrt(t * (2 - t));
+};
+tweenx909.advanced = {};
+tweenx909.advanced.CommandX = function(command,posInfos) {
+	this.command = command;
+	this.definedPosInfos = posInfos;
+};
+$hxClasses["tweenx909.advanced.CommandX"] = tweenx909.advanced.CommandX;
+tweenx909.advanced.CommandX.__name__ = ["tweenx909","advanced","CommandX"];
+tweenx909.advanced.CommandX.prototype = {
+	__class__: tweenx909.advanced.CommandX
+};
+tweenx909.rule = {};
+tweenx909.rule.BoolRuleX = function() { };
+$hxClasses["tweenx909.rule.BoolRuleX"] = tweenx909.rule.BoolRuleX;
+tweenx909.rule.BoolRuleX.__name__ = ["tweenx909","rule","BoolRuleX"];
+tweenx909.rule.BoolRuleX.calc = function(_from,_to,t1,t2,tween) {
+	return 0 < (_from?1:0) * t2 + (_to?1:0) * t1;
+};
+tweenx909.rule.BoolRuleX.defaultFrom = function(value,_to,tween) {
+	return value;
+};
+tweenx909.rule.ArrayRuleX = function() { };
+$hxClasses["tweenx909.rule.ArrayRuleX"] = tweenx909.rule.ArrayRuleX;
+tweenx909.rule.ArrayRuleX.__name__ = ["tweenx909","rule","ArrayRuleX"];
+tweenx909.rule.ArrayRuleX.calc = function(_from,_to,t1,t2,tween) {
+	var fi = $iterator(_from)();
+	var arr = [];
+	var $it0 = $iterator(_to)();
+	while( $it0.hasNext() ) {
+		var t = $it0.next();
+		var f = fi.next();
+		arr.push(tweenx909.rule.ArrayRuleX._calc(f,t,t1,t2,tween));
+	}
+	return arr;
+};
+tweenx909.rule.ArrayRuleX._calc = function(_from,_to,t1,t2,tween) {
+	if(typeof(_to) == "number") return _from * t2 + _to * t1; else {
+		var result = null;
+		var ok = false;
+		var $it0 = $iterator(tweenx909.TweenX.get_rules())();
+		while( $it0.hasNext() ) {
+			var r = $it0.next();
+			if(js.Boot.__instanceof(_to,r.inputClass)) {
+				ok = true;
+				result = r.calc(_from,_to,t1,t2,tween);
+				break;
+			}
+		}
+		if(!ok) {
+			var eh = tween;
+			throw eh.error("The tween rule for " + Type.getClassName(Type.getClass(_to)) + " is not defined");
+		}
+		return result;
+	}
+};
+tweenx909.rule.ArrayRuleX.defaultFrom = function(value,_to,tween) {
+	var eh = tween;
+	if(value != null) {
+		var arr = [];
+		var $it0 = $iterator(_to)();
+		while( $it0.hasNext() ) {
+			var t = $it0.next();
+			arr.push(null);
+		}
+	} else if(Lambda.count(value) != Lambda.count(_to)) throw eh.error("The array length must be same with start.");
+	var result = [];
+	var it = $iterator(_to)();
+	var $it1 = $iterator(value)();
+	while( $it1.hasNext() ) {
+		var v = $it1.next();
+		var t1 = it.next();
+		result.push(tweenx909.rule.ArrayRuleX._defaultFrom(v,t1,tween));
+	}
+	return result;
+};
+tweenx909.rule.ArrayRuleX._defaultFrom = function(value,_to,tween) {
+	if(typeof(_to) == "number") return value;
+	var $it0 = $iterator(tweenx909.TweenX.get_rules())();
+	while( $it0.hasNext() ) {
+		var r = $it0.next();
+		if(js.Boot.__instanceof(_to,r.inputClass)) return r.defaultFrom(value,_to,tween);
+	}
+	var eh = tween;
+	throw eh.error("The tween rule for " + Type.getClassName(Type.getClass(_to)) + " is not defined");
+	return null;
+};
+tweenx909.rule.TimelineX = function() { };
+$hxClasses["tweenx909.rule.TimelineX"] = tweenx909.rule.TimelineX;
+tweenx909.rule.TimelineX.__name__ = ["tweenx909","rule","TimelineX"];
+tweenx909.rule.TimelineX.calc = function(_from,_to,t1,t2,tween) {
+	var t = t1 * _to.length;
+	var ts = _to.timeline;
+	var l = ts.length;
+	var min = 0;
+	var max = l;
+	var n = max >> 1;
+	while(max - min > 1) {
+		var val = ts[n];
+		if(t < val) max = n; else min = n;
+		n = min + (max - min >> 1);
+	}
+	return _to.data[min];
+};
+tweenx909.rule.TimelineX.defaultFrom = function(value,_to,tween) {
+	return null;
+};
+tweenx909.rule.TimelineX.prototype = {
+	__class__: tweenx909.rule.TimelineX
+};
+tweenx909.rule.RgbX = function(red,green,blue) {
+	this.r = red;
+	this.g = green;
+	this.b = blue;
+};
+$hxClasses["tweenx909.rule.RgbX"] = tweenx909.rule.RgbX;
+tweenx909.rule.RgbX.__name__ = ["tweenx909","rule","RgbX"];
+tweenx909.rule.RgbX.calc = function(_from,_to,t1,t2,tween) {
+	var r = (_from.r * t2 + _to.r * t1) * 255 | 0;
+	if(r < 0) r = 0; else if(r > 255) r = 255;
+	var g = (_from.g * t2 + _to.g * t1) * 255 | 0;
+	if(g < 0) g = 0; else if(g > 255) g = 255;
+	var b = (_from.b * t2 + _to.b * t1) * 255 | 0;
+	if(b < 0) b = 0; else if(b > 255) b = 255;
+	return r << 16 | g << 8 | b;
+};
+tweenx909.rule.RgbX.defaultFrom = function(value,_to,tween) {
+	return tweenx909.rule.RgbX.of(value);
+};
+tweenx909.rule.RgbX.of = function(color) {
+	return new tweenx909.rule.RgbX((color >> 16 & 255) / 255,(color >> 8 & 255) / 255,(color & 255) / 255);
+};
+tweenx909.rule.RgbX.prototype = {
+	__class__: tweenx909.rule.RgbX
+};
+tweenx909.rule.HsvX = function(hue,saturation,value) {
+	this.h = hue;
+	this.s = saturation;
+	this.v = value;
+};
+$hxClasses["tweenx909.rule.HsvX"] = tweenx909.rule.HsvX;
+tweenx909.rule.HsvX.__name__ = ["tweenx909","rule","HsvX"];
+tweenx909.rule.HsvX.calc = function(_from,_to,t1,t2,tween) {
+	var h = _from.h * t2 + _to.h * t1;
+	var s = _from.s * t2 + _to.s * t1;
+	var v = _from.v * t2 + _to.v * t1;
+	h = (h - Math.floor(h)) * 6;
+	var hi = Math.floor(h);
+	if(s > 1) s = 1;
+	if(s < 0) s = 0;
+	if(v > 1) v = 1;
+	if(v < 0) v = 0;
+	var m = v * (1 - s);
+	var f = h - hi;
+	var r = .0;
+	var g = .0;
+	var b = .0;
+	switch(hi) {
+	case 0:
+		r = v;
+		g = v * (1 - s * (1 - f));
+		b = m;
+		break;
+	case 1:
+		r = v * (1 - s * f);
+		g = v;
+		b = m;
+		break;
+	case 2:
+		r = m;
+		g = v;
+		b = v * (1 - s * (1 - f));
+		break;
+	case 3:
+		r = m;
+		g = v * (1 - s * f);
+		b = v;
+		break;
+	case 4:
+		r = v * (1 - s * (1 - f));
+		g = m;
+		b = v;
+		break;
+	case 5:
+		r = v;
+		g = m;
+		b = v * (1 - s * f);
+		break;
+	}
+	return (r * 255 | 0) << 16 | (g * 255 | 0) << 8 | (b * 255 | 0);
+};
+tweenx909.rule.HsvX.defaultFrom = function(value,_to,tween) {
+	return tweenx909.rule.HsvX.of(value);
+};
+tweenx909.rule.HsvX.of = function(color,hueIndex) {
+	if(hueIndex == null) hueIndex = 0;
+	var r = (color >> 16 & 255) / 255;
+	var g = (color >> 8 & 255) / 255;
+	var b = (color & 255) / 255;
+	var max;
+	var min;
+	var diff;
+	var h;
+	if(r < g) {
+		if(g < b) {
+			max = b;
+			min = r;
+			h = (4 + (r - g) / (diff = max - min)) / 6;
+		} else {
+			max = g;
+			if(r < b) min = r; else min = b;
+			h = (2 + (b - r) / (diff = max - min)) / 6;
+		}
+	} else if(r < b) {
+		max = b;
+		min = g;
+		h = (4 + (r - g) / (diff = max - min)) / 6;
+	} else {
+		max = r;
+		if(g < b) min = g; else min = b;
+		h = (g - b) / (diff = max - min) / 6;
+	}
+	if(h < 0) h += 1;
+	var s = diff / max;
+	return new tweenx909.rule.HsvX(h + hueIndex,s,max);
+};
+tweenx909.rule.HsvX.prototype = {
+	__class__: tweenx909.rule.HsvX
+};
+tweenx909.rule.ArgbX = function(alpha,red,green,blue) {
+	this.a = alpha;
+	this.r = red;
+	this.g = green;
+	this.b = blue;
+};
+$hxClasses["tweenx909.rule.ArgbX"] = tweenx909.rule.ArgbX;
+tweenx909.rule.ArgbX.__name__ = ["tweenx909","rule","ArgbX"];
+tweenx909.rule.ArgbX.calc = function(_from,_to,t1,t2,tween) {
+	var a = (_from.a * t2 + _to.a * t1) * 255 | 0;
+	if(a < 0) a = 0; else if(a > 255) a = 255;
+	var r = (_from.r * t2 + _to.r * t1) * 255 | 0;
+	if(r < 0) r = 0; else if(r > 255) r = 255;
+	var g = (_from.g * t2 + _to.g * t1) * 255 | 0;
+	if(g < 0) g = 0; else if(g > 255) g = 255;
+	var b = (_from.b * t2 + _to.b * t1) * 255 | 0;
+	if(b < 0) b = 0; else if(b > 255) b = 255;
+	return a << 24 | r << 16 | g << 8 | b;
+};
+tweenx909.rule.ArgbX.defaultFrom = function(value,_to,tween) {
+	return tweenx909.rule.ArgbX.of(value);
+};
+tweenx909.rule.ArgbX.of = function(color) {
+	return new tweenx909.rule.ArgbX((color >>> 24 & 255) / 255,(color >> 16 & 255) / 255,(color >> 8 & 255) / 255,(color & 255) / 255);
+};
+tweenx909.rule.ArgbX.prototype = {
+	__class__: tweenx909.rule.ArgbX
+};
+tweenx909.rule.AhsvX = function(alpha,hue,saturation,value) {
+	this.a = alpha;
+	this.h = hue;
+	this.s = saturation;
+	this.v = value;
+};
+$hxClasses["tweenx909.rule.AhsvX"] = tweenx909.rule.AhsvX;
+tweenx909.rule.AhsvX.__name__ = ["tweenx909","rule","AhsvX"];
+tweenx909.rule.AhsvX.calc = function(_from,_to,t1,t2,tween) {
+	var a = _from.a * t2 + _to.a * t1;
+	if(a > 1) a = 1;
+	if(a < 0) a = 0;
+	var h = _from.h * t2 + _to.h * t1;
+	var s = _from.s * t2 + _to.s * t1;
+	var v = _from.v * t2 + _to.v * t1;
+	h = (h - Math.floor(h)) * 6;
+	var hi = Math.floor(h);
+	if(s > 1) s = 1;
+	if(s < 0) s = 0;
+	if(v > 1) v = 1;
+	if(v < 0) v = 0;
+	var m = v * (1 - s);
+	var f = h - hi;
+	var r = .0;
+	var g = .0;
+	var b = .0;
+	switch(hi) {
+	case 0:
+		r = v;
+		g = v * (1 - s * (1 - f));
+		b = m;
+		break;
+	case 1:
+		r = v * (1 - s * f);
+		g = v;
+		b = m;
+		break;
+	case 2:
+		r = m;
+		g = v;
+		b = v * (1 - s * (1 - f));
+		break;
+	case 3:
+		r = m;
+		g = v * (1 - s * f);
+		b = v;
+		break;
+	case 4:
+		r = v * (1 - s * (1 - f));
+		g = m;
+		b = v;
+		break;
+	case 5:
+		r = v;
+		g = m;
+		b = v * (1 - s * f);
+		break;
+	}
+	return (a * 255 | 0) << 24 | (r * 255 | 0) << 16 | (g * 255 | 0) << 8 | (b * 255 | 0);
+};
+tweenx909.rule.AhsvX.defaultFrom = function(value,_to,tween) {
+	return tweenx909.rule.AhsvX.of(value);
+};
+tweenx909.rule.AhsvX.of = function(color,hueIndex) {
+	if(hueIndex == null) hueIndex = 0;
+	var a = (color >>> 24 & 255) / 255;
+	var r = (color >> 16 & 255) / 255;
+	var g = (color >> 8 & 255) / 255;
+	var b = (color & 255) / 255;
+	var max;
+	var min;
+	var diff;
+	var h;
+	if(r < g) {
+		if(g < b) {
+			max = b;
+			min = r;
+			h = (4 + (r - g) / (diff = max - min)) / 6;
+		} else {
+			max = g;
+			if(r < b) min = r; else min = b;
+			h = (2 + (b - r) / (diff = max - min)) / 6;
+		}
+	} else if(r < b) {
+		max = b;
+		min = g;
+		h = (4 + (r - g) / (diff = max - min)) / 6;
+	} else {
+		max = r;
+		if(g < b) min = g; else min = b;
+		h = (g - b) / (diff = max - min) / 6;
+	}
+	if(h < 0) h += 1;
+	var s = diff / max;
+	return new tweenx909.rule.AhsvX(a,h + hueIndex,s,max);
+};
+tweenx909.rule.AhsvX.prototype = {
+	__class__: tweenx909.rule.AhsvX
+};
+tweenx909.rule.QuakeX = function(value,scale,ease) {
+	this.value = value;
+	this.scale = scale;
+	if(ease == null) this.ease = $bind(this,this.none); else this.ease = ease;
+};
+$hxClasses["tweenx909.rule.QuakeX"] = tweenx909.rule.QuakeX;
+tweenx909.rule.QuakeX.__name__ = ["tweenx909","rule","QuakeX"];
+tweenx909.rule.QuakeX.calc = function(_from,_to,t1,t2,tween) {
+	var p;
+	if(t1 < 0.5) p = _from.ease(t1 * 2); else p = _to.ease(t2 * 2);
+	return _from.value * t2 + _to.value * t1 + p * (Math.random() * 2 - 1) * (_from.scale * t2 + _to.scale * t1);
+};
+tweenx909.rule.QuakeX.defaultFrom = function(value,_to,tween) {
+	return new tweenx909.rule.QuakeX(value,_to.scale,_to.ease);
+};
+tweenx909.rule.QuakeX.prototype = {
+	none: function(t) {
+		if(t <= 0) return 0; else return 1;
+	}
+	,__class__: tweenx909.rule.QuakeX
+};
+tweenx909.advanced.UpdateModeX = $hxClasses["tweenx909.advanced.UpdateModeX"] = { __ename__ : true, __constructs__ : ["MANUAL","TIME"] };
+tweenx909.advanced.UpdateModeX.MANUAL = ["MANUAL",0];
+tweenx909.advanced.UpdateModeX.MANUAL.toString = $estr;
+tweenx909.advanced.UpdateModeX.MANUAL.__enum__ = tweenx909.advanced.UpdateModeX;
+tweenx909.advanced.UpdateModeX.TIME = function(frameRate) { var $x = ["TIME",1,frameRate]; $x.__enum__ = tweenx909.advanced.UpdateModeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.UpdateModeX.__empty_constructs__ = [tweenx909.advanced.UpdateModeX.MANUAL];
+tweenx909.TweenX = function(type,time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos) {
+	this.timeScale = 1;
+	this._skip = null;
+	this._currentTime = 0;
+	tweenx909.advanced.CommandX.call(this,tweenx909.advanced.CommandTypeX.TWEEN(this),posInfos);
+	this._type = type;
+	this._currentTime = 0;
+	switch(type[1]) {
+	case 0:
+		var g = type[2];
+		this._easeIsDefault = false;
+		if(ease == null) this._ease = tweenx909.EaseX.linear; else this._ease = ease;
+		break;
+	default:
+		if(this._easeIsDefault = ease == null) this._ease = tweenx909.TweenX.defaultEase; else this._ease = ease;
+	}
+	if(this._timeIsDefault = time == null) this._time = tweenx909.TweenX.defaultTime; else this._time = time;
+	if(this._delayIsDefault = delay == null) this._delay = tweenx909.TweenX.defaultDelay; else this._delay = delay;
+	if(this._intervalIsDefault = interval == null) this._interval = tweenx909.TweenX.defaultInterval; else this._interval = interval;
+	if(this._repeatIsDefault = repeat == null) this._repeat = tweenx909.TweenX.defaultRepeat; else this._repeat = repeat;
+	if(this._yoyoIsDefault = yoyo == null) this._yoyo = tweenx909.TweenX.defaultYoyo; else this._yoyo = yoyo;
+	if(this._zigzagIsDefault = zigzag == null) this._zigzag = tweenx909.TweenX.defaultZigZag; else this._zigzag = zigzag;
+	if(this._autoPlayIsDefault = autoPlay == null) this._autoPlay = tweenx909.TweenX.defaultAutoPlay; else this._autoPlay = autoPlay;
+	this._rest = 0;
+	this._eventListeners = [];
+	this.id = tweenx909.TweenX.idCounter++;
+	tweenx909.TweenX._addedTweens.push(this);
+	if(!tweenx909.TweenX.managerInited) tweenx909.TweenX.initManager();
+};
+$hxClasses["tweenx909.TweenX"] = tweenx909.TweenX;
+tweenx909.TweenX.__name__ = ["tweenx909","TweenX"];
+tweenx909.TweenX.__properties__ = {get_rules:"get_rules"}
+tweenx909.TweenX.get_rules = function() {
+	return tweenx909.TweenX._rules;
+};
+tweenx909.TweenX.dumpDefaults = function() {
+	return new tweenx909.advanced.DefaultsX().dump();
+};
+tweenx909.TweenX.setDefaults = function(defaults) {
+	defaults.apply();
+};
+tweenx909.TweenX.initManager = function() {
+	tweenx909.TweenX.managerInited = true;
+	tweenx909.TweenX.stopUpdater();
+	{
+		var _g = tweenx909.TweenX.updateMode;
+		switch(_g[1]) {
+		case 1:
+			var f = _g[2];
+			tweenx909.TweenX.prevTime = new Date().getTime();
+			tweenx909.TweenX.setInterval(tweenx909.TweenX.mainLoop,Math.round(1000 / f));
+			break;
+		case 0:
+			break;
+		}
+	}
+};
+tweenx909.TweenX.mainLoop = function() {
+	{
+		var _g = tweenx909.TweenX.updateMode;
+		switch(_g[1]) {
+		case 1:
+			var f = _g[2];
+			tweenx909.TweenX.manualUpdate((new Date().getTime() - tweenx909.TweenX.prevTime) / 1000);
+			tweenx909.TweenX.prevTime = new Date().getTime();
+			break;
+		case 0:
+			throw "invalid auto update";
+			break;
+		}
+	}
+};
+tweenx909.TweenX.stopUpdater = function() {
+	if(tweenx909.TweenX._timer != null) {
+		tweenx909.TweenX._timer.stop();
+		tweenx909.TweenX._timer = null;
+	}
+};
+tweenx909.TweenX.manualUpdate = function(time) {
+	tweenx909.TweenX.initTweens();
+	var l = tweenx909.TweenX._tweens.length;
+	var i = 0;
+	while(i < l) {
+		var t = tweenx909.TweenX._tweens[i++];
+		t._update(time * t.timeScale * tweenx909.TweenX.topLevelTimeScale);
+		if(!t.playing) {
+			tweenx909.TweenX._tweens.splice(--i,1);
+			l--;
+		}
+	}
+	tweenx909.TweenX._resetLog();
+};
+tweenx909.TweenX.initTweens = function() {
+	var _g = 0;
+	var _g1 = tweenx909.TweenX._addedTweens;
+	while(_g < _g1.length) {
+		var t = _g1[_g];
+		++_g;
+		t._init();
+	}
+	tweenx909.TweenX._addedTweens.splice(0,tweenx909.TweenX._addedTweens.length);
+};
+tweenx909.TweenX.to = function(target,_to,time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos) {
+	if(_to == null) _to = { };
+	if(!tweenx909.TweenX.isIterable(target)) return new tweenx909.advanced.StandardTweenX(tweenx909.advanced.TweenTypeX.FROM_TO(target,{ },_to),time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos); else return new tweenx909.advanced.StandardTweenX(tweenx909.advanced.TweenTypeX.ARRAY(target,[{ }],[_to]),time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos);
+};
+tweenx909.TweenX.setInterval = function(f,t) {
+	if(tweenx909.TweenX._timer != null) tweenx909.TweenX._timer.stop();
+	tweenx909.TweenX._timer = new haxe.Timer(t);
+	tweenx909.TweenX._timer.run = f;
+};
+tweenx909.TweenX._resetLog = function() {
+	tweenx909.TweenX._initLog = [];
+	tweenx909.TweenX.dictionary = new haxe.ds.ObjectMap();
+};
+tweenx909.TweenX.field = function(o,key) {
+	var tmp;
+	if(o == null) return null; else if(o.__properties__ && (tmp = o.__properties__["get_" + key])) return o[tmp](); else return o[key];
+};
+tweenx909.TweenX.setField = function(o,key,value) {
+	var tmp;
+	if(o.__properties__ && (tmp = o.__properties__["set_" + key])) o[tmp](value); else o[key] = value;
+};
+tweenx909.TweenX.isIterable = function(d) {
+	return d != null && ((d instanceof Array) && d.__enum__ == null || Object.prototype.hasOwnProperty.call(d,"iterator") && Reflect.isFunction($iterator(d)) && $iterator(d)() != null);
+};
+tweenx909.TweenX.__super__ = tweenx909.advanced.CommandX;
+tweenx909.TweenX.prototype = $extend(tweenx909.advanced.CommandX.prototype,{
+	get_currentTime: function() {
+		var t = this.get_totalTime();
+		var p;
+		if(this.backward) p = t - this._currentTime; else p = this._currentTime;
+		if(p < 0) p = 0;
+		if(p > t) p = t;
+		return p;
+	}
+	,get_singleTime: function() {
+		return this._time + this._interval;
+	}
+	,get_totalTime: function() {
+		return this._delay + this.get_singleTime() * this._repeat - this._interval + this._rest;
+	}
+	,error: function(msg) {
+		var p = this.definedPosInfos;
+		return msg + "(Tween_" + this.id + " was generated at " + p.className + "/" + p.methodName + "() [" + p.fileName + ":" + p.lineNumber + "])";
+	}
+	,play: function() {
+		if(this._parent != null) throw this.error("Can't play serialized object directly");
+		if(this.playing) return this;
+		if(!this._inited) this._init();
+		this.playing = true;
+		tweenx909.TweenX._tweens.push(this);
+		this.dispatch(0);
+		if(this._onPlay != null) this._onPlay();
+		this.update(1.4901161415892264e-008);
+		return this;
+	}
+	,_stop: function() {
+		if(!this.playing) return;
+		this.playing = false;
+		this.dispatch(9);
+		if(this._onStop != null) this._onStop();
+	}
+	,update: function(time) {
+		if(this._parent != null) throw this.error("Can't stop serialized object directly");
+		this._update(time * this.timeScale * tweenx909.TweenX.topLevelTimeScale);
+		return this;
+	}
+	,_invert: function() {
+		this._currentTime = this._totalTime - this._currentTime;
+		if(this._repeat % 2 == 0) this._odd = !this._odd;
+		this._inverted = !this._inverted;
+		var d = this._delay;
+		this._delay = this._rest;
+		this._rest = d;
+	}
+	,_init: function() {
+		if(this._inited) return;
+		this._inited = true;
+		if(tweenx909.TweenX._groupDefaults) {
+			if(this._easeIsDefault) this._ease = tweenx909.TweenX.defaultEase;
+			if(this._timeIsDefault) this._time = tweenx909.TweenX.defaultTime;
+			if(this._delayIsDefault) this._delay = tweenx909.TweenX.defaultDelay;
+			if(this._intervalIsDefault) this._interval = tweenx909.TweenX.defaultInterval;
+			if(this._repeatIsDefault) this._repeat = tweenx909.TweenX.defaultRepeat;
+			if(this._yoyoIsDefault) this._yoyo = tweenx909.TweenX.defaultYoyo;
+			if(this._zigzagIsDefault) this._zigzag = tweenx909.TweenX.defaultZigZag;
+			if(this._autoPlayIsDefault) this._autoPlay = tweenx909.TweenX.defaultAutoPlay;
+		}
+		if(this._repeat == 0) this._repeat = 2147483646;
+		if(this._time < 1.4901161415892264e-008) this._time = 1.4901161415892264e-008;
+		var ot = new Date().getTime();
+		this._fastMode = true;
+		{
+			var _g = this._type;
+			switch(_g[1]) {
+			case 2:
+				var _to = _g[4];
+				var _from = _g[3];
+				var target = _g[2];
+				this._initFromTo(target,_from,_to);
+				this._toKeys = Reflect.fields(_to);
+				break;
+			case 1:
+				var toArr = _g[4];
+				var fromArr = _g[3];
+				var targets = _g[2];
+				var i = 0;
+				var $it0 = $iterator(targets)();
+				while( $it0.hasNext() ) {
+					var target1 = $it0.next();
+					var _from1 = fromArr[i];
+					var _to1 = toArr[i];
+					this._initFromTo(target1,_from1,_to1);
+					if(i == 0) this._toKeys = Reflect.fields(_to1);
+					i++;
+				}
+				break;
+			case 0:
+				var g = _g[2];
+				this.initGroup(g);
+				break;
+			default:
+			}
+		}
+		this._singleTime = this.get_singleTime();
+		this._totalTime = this.get_totalTime();
+		if(this._autoPlay) this.play();
+	}
+	,_initFromTo: function(target,_from,_to) {
+		throw this.error("must be standard tween.");
+	}
+	,_update: function(spent) {
+		if(!this._inited) this._init();
+		if(spent == 0) return;
+		if(this.backward) spent = -spent;
+		if(spent < 0) {
+			this._invert();
+			this.backward = !this.backward;
+			spent = -spent;
+		}
+		var _currentTime = this._currentTime;
+		var _singleTime = this.get_singleTime();
+		var _totalTime = this._totalTime;
+		var time = this._time;
+		var delay = this._delay;
+		var untilRest = _totalTime - this._rest;
+		var delaying = _currentTime - delay < 1.4901161415892264e-008;
+		var resting = !delaying && 1.4901161415892264e-008 > untilRest - _currentTime;
+		var body = _currentTime - delay;
+		var repeatNum = Math.floor(body / _singleTime);
+		var position = body - repeatNum * _singleTime;
+		var intervending = 1.4901161415892264e-008 > time - position;
+		this._currentTime = _currentTime += spent;
+		position += spent;
+		body += spent;
+		if(_currentTime - delay < 1.4901161415892264e-008) {
+			this.dispatch(1);
+			if(this._onDelay != null) this._onDelay();
+			return;
+		} else if(delaying) {
+			this._apply(0,0);
+			this.dispatch(2);
+			if(this._onHead != null) this._onHead();
+			this.dispatch(3);
+			if(this._onUpdate != null) this._onUpdate();
+			delaying = false;
+		}
+		if(1.4901161415892264e-008 > untilRest - _currentTime) {
+			if(!resting) {
+				if(intervending) {
+					this.dispatch(6);
+					if(this._onRepeat != null) this._onRepeat();
+					this._apply(0,repeatNum);
+					this.dispatch(2);
+					if(this._onHead != null) this._onHead();
+					this.dispatch(3);
+					if(this._onUpdate != null) this._onUpdate();
+				}
+				this._apply(this._time,this._repeat - 1);
+				this.dispatch(3);
+				if(this._onUpdate != null) this._onUpdate();
+				this.dispatch(4);
+				if(this._onFoot != null) this._onFoot();
+			}
+			if(1.4901161415892264e-008 > _totalTime - _currentTime) {
+				this._currentTime = this._totalTime;
+				this.dispatch(8);
+				if(this._onFinish != null) this._onFinish();
+				this._stop();
+			} else {
+				this.dispatch(7);
+				if(this._onRest != null) this._onRest();
+			}
+		} else {
+			if(1.4901161415892264e-008 > time - position) {
+				if(!intervending && repeatNum >= 0) {
+					this._apply(this._time,repeatNum);
+					this.dispatch(3);
+					if(this._onUpdate != null) this._onUpdate();
+					this.dispatch(4);
+					if(this._onFoot != null) this._onFoot();
+				}
+				if(position < _singleTime) {
+					this.dispatch(5);
+					if(this._onInterval != null) this._onInterval();
+					return;
+				} else {
+					if(repeatNum >= 0) {
+						this.dispatch(6);
+						if(this._onRepeat != null) this._onRepeat();
+						this._apply(0,repeatNum);
+						this.dispatch(2);
+						if(this._onHead != null) this._onHead();
+						this.dispatch(3);
+						if(this._onUpdate != null) this._onUpdate();
+					}
+					repeatNum = body / _singleTime | 0;
+					position = body - repeatNum * _singleTime;
+					if(1.4901161415892264e-008 > time - position) {
+						this._apply(this._time,repeatNum);
+						this.dispatch(3);
+						if(this._onUpdate != null) this._onUpdate();
+						this.dispatch(4);
+						if(this._onFoot != null) this._onFoot();
+						this.dispatch(5);
+						if(this._onInterval != null) this._onInterval();
+						return;
+					}
+				}
+			} else if(intervending) {
+				this.dispatch(6);
+				if(this._onRepeat != null) this._onRepeat();
+				this._apply(0,repeatNum);
+				this.dispatch(2);
+				if(this._onHead != null) this._onHead();
+				this.dispatch(3);
+				if(this._onUpdate != null) this._onUpdate();
+			}
+			this._apply(position,repeatNum);
+			this.dispatch(3);
+			if(this._onUpdate != null) this._onUpdate();
+		}
+	}
+	,_apply: function(p,repeatNum) {
+		var t = this._getPosition(p,repeatNum % 2 == 1);
+		{
+			var _g = this._type;
+			switch(_g[1]) {
+			case 2:
+				var _to = _g[4];
+				var _from = _g[3];
+				var target = _g[2];
+				var t2 = 1 - t;
+				if(this._fastMode) {
+					var _g1 = 0;
+					var _g2 = this._toKeys;
+					while(_g1 < _g2.length) {
+						var key = _g2[_g1];
+						++_g1;
+						tweenx909.TweenX.setField(target,key,this._fastCalc(tweenx909.TweenX.field(_from,key),tweenx909.TweenX.field(_to,key),t,t2));
+					}
+				} else {
+					var _g11 = 0;
+					var _g21 = this._toKeys;
+					while(_g11 < _g21.length) {
+						var key1 = _g21[_g11];
+						++_g11;
+						tweenx909.TweenX.setField(target,key1,this._calc(tweenx909.TweenX.field(_from,key1),tweenx909.TweenX.field(_to,key1),t,t2));
+					}
+				}
+				break;
+			case 1:
+				var tos = _g[4];
+				var froms = _g[3];
+				var targets = _g[2];
+				var t21 = 1 - t;
+				var i = 0;
+				var $it0 = $iterator(targets)();
+				while( $it0.hasNext() ) {
+					var target1 = $it0.next();
+					var _to1 = tos[i];
+					var _from1 = froms[i++];
+					var _g12 = 0;
+					var _g22 = this._toKeys;
+					while(_g12 < _g22.length) {
+						var key2 = _g22[_g12];
+						++_g12;
+						tweenx909.TweenX.setField(target1,key2,this._calc(tweenx909.TweenX.field(_from1,key2),tweenx909.TweenX.field(_to1,key2),t,t21));
+					}
+				}
+				break;
+			case 3:
+				var _to2 = _g[4];
+				var _from2 = _g[3];
+				var func = _g[2];
+				var t22 = 1 - t;
+				var arr = [];
+				var _g23 = 0;
+				var _g13 = _to2.length;
+				while(_g23 < _g13) {
+					var i1 = _g23++;
+					arr[i1] = this._calc(_from2[i1],_to2[i1],t,t22);
+				}
+				func.apply(null,arr);
+				break;
+			case 0:
+				var g = _g[2];
+				var ts = g.tweens;
+				var spent = (this._time * t - g.current) * 1.00000001;
+				if(spent < 0) {
+					var _g14 = 1 - ts.length;
+					while(_g14 < 1) {
+						var i2 = _g14++;
+						ts[-i2]._update(spent);
+					}
+				} else {
+					var _g24 = 0;
+					var _g15 = ts.length;
+					while(_g24 < _g15) {
+						var i3 = _g24++;
+						ts[i3]._update(spent);
+					}
+				}
+				g.current = g.tweens[0].get_currentTime();
+				break;
+			case 4:
+				var f = _g[2];
+				if(t == 1) f();
+				break;
+			}
+		}
+	}
+	,_fastCalc: function(_from,_to,t1,t2) {
+		return _from * t2 + _to * t1;
+	}
+	,_calc: function(_from,_to,t1,t2) {
+		if(typeof(_to) == "number") {
+			var d = _from * t2 + _to * t1;
+			return d;
+		} else {
+			var i = 0;
+			var l = tweenx909.TweenX._rules.length;
+			var f;
+			var result = null;
+			var ok = false;
+			while(i < l) if(js.Boot.__instanceof(_to,(f = tweenx909.TweenX._rules[i++]).inputClass)) {
+				ok = true;
+				result = f.calc(_from,_to,t1,t2,this);
+				break;
+			}
+			if(!ok) throw this.error("The tween rule for " + Type.getClassName(Type.getClass(_to)) + " is not defined");
+			return result;
+		}
+	}
+	,time: function(value) {
+		if(value < 0) throw this.error("Can't be negative value");
+		this.checkInited();
+		this._timeIsDefault = false;
+		this._time = value;
+		return this;
+	}
+	,ease: function(value) {
+		this.checkInited();
+		this._easeIsDefault = false;
+		this._ease = value;
+		return this;
+	}
+	,onFinish: function(handler) {
+		this._onFinish = handler;
+		return this;
+	}
+	,_getPosition: function(p,back) {
+		var t = p / this._time;
+		if(this._odd) back = !back;
+		if(this._inverted) t = 1 - t;
+		if(back) {
+			if(this._yoyo) t = 1 - t;
+			t = this._ease(t);
+			if(this._zigzag) t = 1 - t;
+		} else t = this._ease(t);
+		return t;
+	}
+	,checkInited: function() {
+		if(this._inited) throw this.error("Can't change params after initialization");
+	}
+	,dispatch: function(num) {
+		var listeners = this._eventListeners[num];
+		if(listeners != null) {
+			var _g = 0;
+			while(_g < listeners.length) {
+				var f = listeners[_g];
+				++_g;
+				f(this);
+			}
+		}
+	}
+	,initGroup: function(g) {
+		var df = null;
+		var gd = false;
+		if(g.defaults != null) {
+			df = tweenx909.TweenX.dumpDefaults();
+			gd = tweenx909.TweenX._groupDefaults;
+			tweenx909.TweenX._groupDefaults = true;
+			tweenx909.TweenX.setDefaults(g.defaults);
+			tweenx909.TweenX.defaultAutoPlay = false;
+		}
+		var delay = 0.0;
+		var max = 0.0;
+		var result = [];
+		{
+			var _g = g.type;
+			switch(_g[1]) {
+			case 0:
+				var $it0 = $iterator(g.source)();
+				while( $it0.hasNext() ) {
+					var t = $it0.next();
+					if(t == null) continue;
+					{
+						var _g1 = t.command;
+						switch(_g1[1]) {
+						case 1:
+							var d = _g1[2];
+							delay += d;
+							break;
+						case 0:
+							var o = _g1[2];
+							result.push(o);
+							o._autoPlay = false;
+							if(tweenx909.TweenX._groupDefaults && o._delayIsDefault) o._delay = tweenx909.TweenX.defaultDelay;
+							o._init();
+							o._delay += delay;
+							o._totalTime += delay;
+							var totalTime = o._totalTime;
+							if(o._skip != null) delay = delay + o._skip; else delay = totalTime;
+							if(max < totalTime) max = totalTime;
+							break;
+						}
+					}
+				}
+				break;
+			case 1:
+				var lag = _g[2];
+				var $it1 = $iterator(g.source)();
+				while( $it1.hasNext() ) {
+					var t1 = $it1.next();
+					if(t1 == null) continue;
+					{
+						var _g11 = t1.command;
+						switch(_g11[1]) {
+						case 1:
+							var d1 = _g11[2];
+							delay += d1;
+							break;
+						case 0:
+							var o1 = _g11[2];
+							result.push(o1);
+							o1._init();
+							o1._delay += delay;
+							o1._totalTime += delay;
+							var totalTime1 = o1._totalTime;
+							if(o1._skip != null) delay += o1._skip; else delay += lag;
+							if(max < totalTime1) max = totalTime1;
+							break;
+						}
+					}
+				}
+				break;
+			}
+		}
+		var _g2 = 0;
+		while(_g2 < result.length) {
+			var t2 = result[_g2];
+			++_g2;
+			var diff = max - t2._totalTime;
+			t2._rest += diff;
+			t2._totalTime += diff;
+		}
+		this._time = max;
+		g.tweens = result;
+		g.source = null;
+		if(g.defaults != null) {
+			tweenx909.TweenX._groupDefaults = gd;
+			tweenx909.TweenX.setDefaults(df);
+		}
+	}
+	,__class__: tweenx909.TweenX
+	,__properties__: {get_totalTime:"get_totalTime",get_singleTime:"get_singleTime",get_currentTime:"get_currentTime"}
+});
+tweenx909.advanced.CommandTypeX = $hxClasses["tweenx909.advanced.CommandTypeX"] = { __ename__ : true, __constructs__ : ["TWEEN","WAIT"] };
+tweenx909.advanced.CommandTypeX.TWEEN = function(tween) { var $x = ["TWEEN",0,tween]; $x.__enum__ = tweenx909.advanced.CommandTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.CommandTypeX.WAIT = function(delay) { var $x = ["WAIT",1,delay]; $x.__enum__ = tweenx909.advanced.CommandTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.CommandTypeX.__empty_constructs__ = [];
+tweenx909.advanced.DefaultsX = function() {
+	this._autoPlay = true;
+	this._zigzag = false;
+	this._yoyo = false;
+	this._repeat = 1;
+	this._interval = 0;
+	this._delay = 0;
+	this._time = 0.3;
+	this._ease = tweenx909.TweenX.DEFAULT_EASE;
+};
+$hxClasses["tweenx909.advanced.DefaultsX"] = tweenx909.advanced.DefaultsX;
+tweenx909.advanced.DefaultsX.__name__ = ["tweenx909","advanced","DefaultsX"];
+tweenx909.advanced.DefaultsX.prototype = {
+	dump: function() {
+		this._time = tweenx909.TweenX.defaultTime;
+		this._ease = tweenx909.TweenX.defaultEase;
+		this._delay = tweenx909.TweenX.defaultDelay;
+		this._interval = tweenx909.TweenX.defaultInterval;
+		this._repeat = tweenx909.TweenX.defaultRepeat;
+		this._yoyo = tweenx909.TweenX.defaultYoyo;
+		this._zigzag = tweenx909.TweenX.defaultZigZag;
+		this._autoPlay = tweenx909.TweenX.defaultAutoPlay;
+		return this;
+	}
+	,apply: function() {
+		tweenx909.TweenX.defaultTime = this._time;
+		tweenx909.TweenX.defaultEase = this._ease;
+		tweenx909.TweenX.defaultDelay = this._delay;
+		tweenx909.TweenX.defaultInterval = this._interval;
+		tweenx909.TweenX.defaultRepeat = this._repeat;
+		tweenx909.TweenX.defaultYoyo = this._yoyo;
+		tweenx909.TweenX.defaultZigZag = this._zigzag;
+		tweenx909.TweenX.defaultAutoPlay = this._autoPlay;
+	}
+	,__class__: tweenx909.advanced.DefaultsX
+};
+tweenx909.advanced.GroupX = function() {
+	this.current = 0;
+};
+$hxClasses["tweenx909.advanced.GroupX"] = tweenx909.advanced.GroupX;
+tweenx909.advanced.GroupX.__name__ = ["tweenx909","advanced","GroupX"];
+tweenx909.advanced.GroupX.prototype = {
+	__class__: tweenx909.advanced.GroupX
+};
+tweenx909.advanced._GroupX = {};
+tweenx909.advanced._GroupX.GroupTypeX = $hxClasses["tweenx909.advanced._GroupX.GroupTypeX"] = { __ename__ : true, __constructs__ : ["SERIAL","LAG"] };
+tweenx909.advanced._GroupX.GroupTypeX.SERIAL = ["SERIAL",0];
+tweenx909.advanced._GroupX.GroupTypeX.SERIAL.toString = $estr;
+tweenx909.advanced._GroupX.GroupTypeX.SERIAL.__enum__ = tweenx909.advanced._GroupX.GroupTypeX;
+tweenx909.advanced._GroupX.GroupTypeX.LAG = function(lag) { var $x = ["LAG",1,lag]; $x.__enum__ = tweenx909.advanced._GroupX.GroupTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced._GroupX.GroupTypeX.__empty_constructs__ = [tweenx909.advanced._GroupX.GroupTypeX.SERIAL];
+tweenx909.advanced.StandardTweenX = function(type,time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos) {
+	this._autoFrom = true;
+	switch(type[1]) {
+	case 1:
+		var toArr = type[4];
+		var fromArr = type[3];
+		var targets = type[2];
+		var _from = fromArr.pop();
+		var _to = toArr.pop();
+		var $it0 = $iterator(targets)();
+		while( $it0.hasNext() ) {
+			var t = $it0.next();
+			toArr.push(tweenx909.advanced.StandardTweenX.clone(_to));
+			fromArr.push(tweenx909.advanced.StandardTweenX.clone(_from));
+		}
+		break;
+	default:
+	}
+	tweenx909.TweenX.call(this,type,time,ease,delay,repeat,yoyo,zigzag,interval,autoPlay,posInfos);
+};
+$hxClasses["tweenx909.advanced.StandardTweenX"] = tweenx909.advanced.StandardTweenX;
+tweenx909.advanced.StandardTweenX.__name__ = ["tweenx909","advanced","StandardTweenX"];
+tweenx909.advanced.StandardTweenX.clone = function(obj) {
+	var result = { };
+	var _g = 0;
+	var _g1 = Reflect.fields(obj);
+	while(_g < _g1.length) {
+		var key = _g1[_g];
+		++_g;
+		Reflect.setProperty(result,key,Reflect.getProperty(obj,key));
+	}
+	return result;
+};
+tweenx909.advanced.StandardTweenX.__super__ = tweenx909.TweenX;
+tweenx909.advanced.StandardTweenX.prototype = $extend(tweenx909.TweenX.prototype,{
+	_initFromTo: function(target,_from,_to) {
+		if(this._autoFrom == null) this._autoFrom = tweenx909.TweenX.defaultAutoFrom;
+		this._initFrom(target,_from,_to);
+		var data = { };
+		var fs = Reflect.fields(_from);
+		var _g = 0;
+		while(_g < fs.length) {
+			var key = fs[_g];
+			++_g;
+			if(!Object.prototype.hasOwnProperty.call(_to,key)) tweenx909.TweenX.setField(_to,key,tweenx909.TweenX.field(_from,key));
+			var t = this._getPosition(this._time,this._repeat % 2 == 0);
+			tweenx909.TweenX.setField(data,key,this._calc(tweenx909.TweenX.field(_from,key),tweenx909.TweenX.field(_to,key),t,1 - t));
+		}
+		var id;
+		if(tweenx909.TweenX.dictionary.get(target) != null) id = tweenx909.TweenX.dictionary.get(target); else {
+			tweenx909.TweenX._objCounter = 1 + tweenx909.TweenX._objCounter % 33029;
+			tweenx909.TweenX.dictionary.set(target,tweenx909.TweenX._objCounter);
+			id = tweenx909.TweenX._objCounter;
+		}
+		if(tweenx909.TweenX._initLog[id] == null) tweenx909.TweenX._initLog[id] = [{ target : target, data : data}]; else {
+			var flag = false;
+			var _g1 = 0;
+			var _g11 = tweenx909.TweenX._initLog[id];
+			while(_g1 < _g11.length) {
+				var log = _g11[_g1];
+				++_g1;
+				if(log.target == target) {
+					var _g2 = 0;
+					var _g3 = Reflect.fields(data);
+					while(_g2 < _g3.length) {
+						var key1 = _g3[_g2];
+						++_g2;
+						tweenx909.TweenX.setField(log.data,key1,tweenx909.TweenX.field(data,key1));
+					}
+					flag = true;
+					break;
+				}
+			}
+			if(!flag) tweenx909.TweenX._initLog[id].push({ target : target, data : data});
+		}
+	}
+	,_initFrom: function(target,_from,_to) {
+		var data = null;
+		var _g = 0;
+		var _g1 = Reflect.fields(_to);
+		while(_g < _g1.length) {
+			var key0 = _g1[_g];
+			++_g;
+			if(!(typeof(tweenx909.TweenX.field(_to,key0)) == "number")) this._fastMode = false;
+			var relative = HxOverrides.substr(key0,0,4) == "$$$$";
+			var key;
+			if(relative) key = HxOverrides.substr(key0,4,null); else key = key0;
+			var fromValue;
+			var toValue = tweenx909.TweenX.field(_to,key0);
+			if(!Object.prototype.hasOwnProperty.call(_from,key)) {
+				if(this._autoFrom) {
+					if(data == null) {
+						data = { };
+						var logs = tweenx909.TweenX._initLog[tweenx909.TweenX.dictionary.get(target) != null?tweenx909.TweenX.dictionary.get(target):(function($this) {
+							var $r;
+							tweenx909.TweenX._objCounter = 1 + tweenx909.TweenX._objCounter % 33029;
+							tweenx909.TweenX.dictionary.set(target,tweenx909.TweenX._objCounter);
+							$r = tweenx909.TweenX._objCounter;
+							return $r;
+						}(this))];
+						if(logs != null) {
+							var _g2 = 0;
+							while(_g2 < logs.length) {
+								var log = logs[_g2];
+								++_g2;
+								if(log.target == target) data = log.data;
+							}
+						}
+					}
+					if(Object.prototype.hasOwnProperty.call(data,key)) fromValue = this._defaultFrom(tweenx909.TweenX.field(data,key),toValue); else fromValue = this._defaultFrom(tweenx909.TweenX.field(target,key),toValue);
+				} else fromValue = this._defaultFrom(tweenx909.TweenX.field(target,key),toValue);
+				tweenx909.TweenX.setField(_from,key,fromValue);
+			} else fromValue = tweenx909.TweenX.field(_from,key);
+			if(relative) {
+				tweenx909.TweenX.setField(_to,key,toValue + fromValue);
+				Reflect.deleteField(_to,key0);
+			}
+		}
+	}
+	,_defaultFrom: function(value,_to) {
+		if(typeof(_to) == "number") return value;
+		var _g = 0;
+		var _g1 = tweenx909.TweenX._rules;
+		while(_g < _g1.length) {
+			var r = _g1[_g];
+			++_g;
+			if(js.Boot.__instanceof(_to,r.inputClass)) return r.defaultFrom(value,_to,this);
+		}
+		throw this.error("The tween rule for " + Type.getClassName(Type.getClass(_to)) + " is not defined");
+		return null;
+	}
+	,play: function() {
+		tweenx909.TweenX.prototype.play.call(this);
+		return this;
+	}
+	,update: function(time) {
+		tweenx909.TweenX.prototype.update.call(this,time);
+		return this;
+	}
+	,onFinish: function(handler) {
+		tweenx909.TweenX.prototype.onFinish.call(this,handler);
+		return this;
+	}
+	,time: function(value) {
+		tweenx909.TweenX.prototype.time.call(this,value);
+		return this;
+	}
+	,ease: function(value) {
+		tweenx909.TweenX.prototype.ease.call(this,value);
+		return this;
+	}
+	,__class__: tweenx909.advanced.StandardTweenX
+});
+tweenx909.advanced.TweenTypeX = $hxClasses["tweenx909.advanced.TweenTypeX"] = { __ename__ : true, __constructs__ : ["GROUP","ARRAY","FROM_TO","FUNC","CALL"] };
+tweenx909.advanced.TweenTypeX.GROUP = function(group) { var $x = ["GROUP",0,group]; $x.__enum__ = tweenx909.advanced.TweenTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.TweenTypeX.ARRAY = function(targets,_from,_to) { var $x = ["ARRAY",1,targets,_from,_to]; $x.__enum__ = tweenx909.advanced.TweenTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.TweenTypeX.FROM_TO = function(target,_from,_to) { var $x = ["FROM_TO",2,target,_from,_to]; $x.__enum__ = tweenx909.advanced.TweenTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.TweenTypeX.FUNC = function(func,_from,_to) { var $x = ["FUNC",3,func,_from,_to]; $x.__enum__ = tweenx909.advanced.TweenTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.TweenTypeX.CALL = function(func) { var $x = ["CALL",4,func]; $x.__enum__ = tweenx909.advanced.TweenTypeX; $x.toString = $estr; return $x; };
+tweenx909.advanced.TweenTypeX.__empty_constructs__ = [];
 function $iterator(o) { if( o instanceof Array ) return function() { return HxOverrides.iter(o); }; return typeof(o.iterator) == 'function' ? $bind(o,o.iterator) : o.iterator; }
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
@@ -14303,10 +15876,40 @@ hxsl.GlslOut.GLOBALS = (function($this) {
 }(this));
 hxsl.GlslOut.MAT34 = "struct mat3x4 { vec4 a; vec4 b; vec4 c; };";
 hxsl.RuntimeShader.UID = 0;
-ld31.math.Dir.DIR_NORMAL = 0;
+ld31.gameplay.PolyominoControl.POLYOMINOS = [[[1]],[[1,1]],[[1],[1]],[[1,1],[1,0]],[[1,1],[0,1]],[[0,1],[1,1]],[[1,1,1]],[[1],[1],[1]]];
+ld31.math.Dir.DIR_UP = 0;
 ld31.math.Dir.DIR_LEFT = 3;
 ld31.math.Dir.DIR_RIGHT = 1;
-ld31.math.Dir.DIR_BOTTOM = 2;
+ld31.math.Dir.DIR_DOWN = 2;
+tweenx909.rule.BoolRuleX.inputClass = Bool;
+tweenx909.rule.ArrayRuleX.inputClass = Array;
+tweenx909.rule.TimelineX.inputClass = tweenx909.rule.TimelineX;
+tweenx909.rule.RgbX.inputClass = tweenx909.rule.RgbX;
+tweenx909.rule.HsvX.inputClass = tweenx909.rule.HsvX;
+tweenx909.rule.ArgbX.inputClass = tweenx909.rule.ArgbX;
+tweenx909.rule.AhsvX.inputClass = tweenx909.rule.AhsvX;
+tweenx909.rule.QuakeX.inputClass = tweenx909.rule.QuakeX;
+tweenx909.TweenX._tweens = new Array();
+tweenx909.TweenX._addedTweens = new Array();
+tweenx909.TweenX.managerInited = false;
+tweenx909.TweenX.DEFAULT_EASE = tweenx909.EaseX.linear;
+tweenx909.TweenX.defaultEase = tweenx909.TweenX.DEFAULT_EASE;
+tweenx909.TweenX.defaultTime = 0.3;
+tweenx909.TweenX.defaultDelay = 0;
+tweenx909.TweenX.defaultInterval = 0;
+tweenx909.TweenX.defaultRepeat = 1;
+tweenx909.TweenX.defaultYoyo = false;
+tweenx909.TweenX.defaultZigZag = false;
+tweenx909.TweenX.defaultAutoPlay = true;
+tweenx909.TweenX.defaultAutoFrom = true;
+tweenx909.TweenX._rules = [tweenx909.rule.BoolRuleX,tweenx909.rule.ArrayRuleX,tweenx909.rule.TimelineX,tweenx909.rule.RgbX,tweenx909.rule.HsvX,tweenx909.rule.ArgbX,tweenx909.rule.AhsvX,tweenx909.rule.QuakeX];
+tweenx909.TweenX.topLevelTimeScale = 1;
+tweenx909.TweenX._groupDefaults = false;
+tweenx909.TweenX.updateMode = tweenx909.advanced.UpdateModeX.TIME(60);
+tweenx909.TweenX._initLog = [];
+tweenx909.TweenX.dictionary = new haxe.ds.ObjectMap();
+tweenx909.TweenX._objCounter = 0;
+tweenx909.TweenX.idCounter = 0;
 ld31.Main.main();
 })();
 
