@@ -1,4 +1,5 @@
 package ld31.gameplay;
+import h2d.col.Point;
 import ld31.math.Dir;
 
 /**
@@ -53,13 +54,26 @@ class PolyominoControl
 	
 	public var id:Int;
 	public var color:Int;
+	public var center:h2d.col.Point;
 	
 	public var form:Array<Array<Int>>;
 	
 	public function new( id:Int = -1, color:Int = -1, dir:Dir = null ) 
 	{
-		this.id = (id < 0) ? Math.ceil(Math.random() * POLYOMINOS.length ) : id;
-		this.color = (color < 0) ? Math.ceil(Math.random() * 3) : color;
+		this.id = (id < 0) ? Math.floor(Math.random() * POLYOMINOS.length ) : id;
+		
+		if ( color < 0 )
+		{
+			var col = Math.floor(Math.random() * 3);
+			if ( col == 0 ) 		this.color = Tilemap.TYPE_R;
+			else if ( col == 1 )	this.color = Tilemap.TYPE_G;
+			else 					this.color = Tilemap.TYPE_B;
+		}
+		else
+		{
+			this.color = color;
+		}
+		
 		if ( dir == null ) dir = new Dir();
 		updateForm(dir);
 	}
@@ -86,6 +100,8 @@ class PolyominoControl
 				else if ( dir.is(Dir.DIR_LEFT) )	form[j][i] = original[oldYL-i][j];
 			}
 		}
+		
+		center = new h2d.col.Point( newXL*0.5, newYL*0.5 );
 	}
 	
 	public function toString():String

@@ -35,6 +35,15 @@ class Dir
 		return _dir;
 	}
 	
+	public function getRad():Float
+	{
+		if ( is(DIR_UP) ) 			return 0.;
+		else if ( is(DIR_DOWN) ) 	return hxd.Math.PI;
+		else if ( is(DIR_LEFT) ) 	return -hxd.Math.PI*0.5;
+		else if ( is(DIR_RIGHT) ) 	return hxd.Math.PI*0.5;
+		return 0.;
+	}
+	
 	public function left()
 	{
 		_dir = normDir( _dir-1 );

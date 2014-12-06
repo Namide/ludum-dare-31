@@ -1,10 +1,12 @@
 package ld31;
 import hxd.Timer;
 import ld31.gameplay.PlayerControl;
+import ld31.gameplay.Polyomino;
 import ld31.gameplay.PolyominoControl;
 import ld31.gameplay.Tilemap;
 import ld31.graphic.CubeMesh;
 import ld31.graphic.PlayerMesh;
+import ld31.graphic.PolyominoObject;
 import ld31.graphic.Render;
 import ld31.math.Dir;
 
@@ -16,7 +18,7 @@ class Game
 {
 	var _t:Float;
 	var _dt:Float;
-	var _frameTime:Float = 1/50;
+	var _frameTime:Float = 1/100;
 	
 	
 	var _dir:Dir;
@@ -27,6 +29,8 @@ class Game
 	var _playerControl:PlayerControl;
 	
 	var _playerMesh:PlayerMesh;
+	
+	var _pol:Polyomino;
 	
 	public function new() 
 	{
@@ -57,9 +61,14 @@ class Game
 		hxd.System.setLoop(mainLoop);
 		
 		
-		
-		//var pol = new PolyominoControl( 3 );
-		//pol.updateForm( new Dir(2) );
+		createPolyomino();
+	}
+	
+	public function changeDir(newDir:Dir)
+	{
+		_dir = newDir;
+		_graphic.rot( _dir );
+		_pol.rot( _dir );
 	}
 	
 	public function mainLoop()
@@ -76,8 +85,7 @@ class Game
 			var newDir = Dir.getDir( _playerControl.x, _playerControl.y );
 			if ( !_dir.is( newDir.get() ) )
 			{
-				_dir = newDir;
-				_graphic.rot( _dir );
+				changeDir( newDir );
 			}
 			
 			if ( _dt/_frameTime<=2 )
@@ -94,6 +102,11 @@ class Game
 			_dt -= _frameTime;
 		}
 		
+	}
+	
+	public function createPolyomino()
+	{
+		_pol = new Polyomino( _graphic.s3d, _dir );
 	}
 	
 }
