@@ -14,7 +14,9 @@ class Polyomino
 {
 
 	public var control:PolyominoControl;
-	public var graphic:PolyominoObject;
+	public var graphicFinal:PolyominoObject;
+	public var graphicGhost:PolyominoObject;
+	
 	var _dir:Dir;
 	
 	var _xi:Int;
@@ -28,7 +30,12 @@ class Polyomino
 	public function new( parent:Object, dir:Dir ) 
 	{
 		control = new PolyominoControl();
-		graphic = new PolyominoObject( control, parent );
+		
+		graphicFinal = new PolyominoObject( control, parent );
+		graphicFinal.visible = false;
+		
+		graphicGhost = new PolyominoObject( control, parent, true );
+		//graphicGhost.visible = true;
 		
 		_sitTime = false;
 		rot( dir );
@@ -37,6 +44,8 @@ class Polyomino
 	public function fixToTilemap( tm:Tilemap )
 	{
 		tm.addPolyomino( control.form, _sitPlace[0], _sitPlace[1] );
+		graphicGhost.visible = false;
+		graphicGhost.remove();
 	}
 	
 	public function rot( dir:Dir )
@@ -50,9 +59,10 @@ class Polyomino
 	
 	public function sit()
 	{
-		if ( _sitTime ) return;
+		if ( _sitTime || _sitPlace == null ) return;
 		
 		_sitTime = true;
+		graphicFinal.visible = true;
 		
 		var x0:Int = _sitPlace[0];
 		var y0:Int = _sitPlace[1];
@@ -63,9 +73,9 @@ class Polyomino
 		else if ( dir.is(Dir.DIR_DOWN) )	y0 += Tilemap.SIDE_NUM_Y;
 		else if ( dir.is(Dir.DIR_LEFT) )	x0 -= Tilemap.SIDE_NUM_X;
 		
-		graphic.setPos( x0, y0, 0 );
+		graphicFinal.setPos( x0, y0, 0 );
 		
-		TweenX.to( graphic, {x:_sitPlace[0], y:_sitPlace[1]} )
+		TweenX.to( graphicFinal, {x:_sitPlace[0], y:_sitPlace[1]} )
 				.time( Game.POLYOMINO_TIME_SIT )
 				//.ease( EaseX.circOut )
 				.onFinish( onSitting );
@@ -86,11 +96,11 @@ class Polyomino
 		_dirSitPlace = _dir.get();
 		
 		if ( _sitPlace == null )
-			graphic.visible = false;
+			graphicGhost.visible = false;
 		else
 		{
-			graphic.visible = true;
-			graphic.setPos( _sitPlace[0]/* - Math.ceil(control.center.x)*/, _sitPlace[1]/* - Math.ceil(control.center.y)*/, 0 );
+			graphicGhost.visible = true;
+			graphicGhost.setPos( _sitPlace[0]/* - Math.ceil(control.center.x)*/, _sitPlace[1]/* - Math.ceil(control.center.y)*/, 0 );
 		}
 		
 		

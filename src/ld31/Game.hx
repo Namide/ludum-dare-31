@@ -17,7 +17,7 @@ import ld31.math.Dir;
 class Game
 {
 	
-	public static inline var POLYOMINO_TIME_SIT:Float = 1;
+	public static inline var POLYOMINO_TIME_SIT:Float = 0.25;
 	
 	var _t:Float;
 	var _dt:Float;
@@ -63,7 +63,6 @@ class Game
 			}
 		
 		
-		
 		//		PLAYER
 		_playerControl.x = p.x;
 		_playerControl.y = p.y - 1;
@@ -106,6 +105,7 @@ class Game
 			{
 				_playerMesh.x = _playerControl.x;
 				_playerMesh.y = _playerControl.y;
+				if ( Math.random() < 0.01 ) trace( _playerControl.x, _playerControl.y, _playerMesh.x, _playerMesh.y );
 				_graphic.refresh();
 			}
 			
@@ -120,7 +120,6 @@ class Game
 	
 	public function createPolyomino()
 	{
-		trace(_dir);
 		_pol = new Polyomino( _graphic.s3d, _dir );
 		_pol.onSitting = sitPolyomino;
 		_playerControl.onAction = _pol.sit;

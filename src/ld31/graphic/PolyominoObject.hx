@@ -11,7 +11,7 @@ import ld31.gameplay.PolyominoControl;
 class PolyominoObject extends Object
 {
 
-	public function new(pc:PolyominoControl,?parent:Object) 
+	public function new(pc:PolyominoControl,?parent:Object, ghost:Bool = false) 
 	{
 		super(parent);
 		
@@ -20,7 +20,7 @@ class PolyominoObject extends Object
 			for ( i in 0...f[j].length )
 			{
 				if ( f[j][i] == 0 ) continue;
-				var c:Mesh = new CubeMesh( pc.color, this );
+				var c:Mesh = new CubeMesh( pc.color, this, ghost );
 				c.x = i;// - pc.center.x;
 				c.y = j;// - pc.center.y;
 			}
