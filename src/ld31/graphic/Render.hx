@@ -5,6 +5,7 @@ import h2d.Text;
 import h2d.Tile;
 import h3d.col.Bounds;
 import h3d.col.Point;
+import h3d.Engine;
 import h3d.mat.Data.MipMap;
 import hxd.Res;
 import ld31.gameplay.Tilemap;
@@ -32,12 +33,36 @@ class Render
 	public function new(callb:Void->Void)
 	{
 		_onInit = callb;
-		this.engine = engine = new h3d.Engine();
-		//engine.
+		/*try
+		{
+			if ( h3d.Engine.getCurrent() != null )
+			{
+				this.engine = h3d.Engine.getCurrent();
+				setup();
+			}
+		}
+		catch (e:Dynamic)
+		{
+			this.engine = new h3d.Engine();
+			engine.onReady = setup;
+		}*/
+		this.engine = new h3d.Engine();
 		engine.onReady = setup;
+		//engine.
+		
 		engine.init();
 	}
 
+	public function dispose()
+	{
+		engine.onReady = null;
+		engine.onResized = null;
+		
+		//s3d.remove();
+		//s2d.remove();
+		//engine.dispose();
+	}
+	
 	public function rot( dir:Dir )
 	{
 		var newPos = { x:0, y:0, z:0 };
@@ -78,7 +103,7 @@ class Render
 			author.textColor = 0xff0099;
 			author.textAlign = Align.Right;
 			author.text = "a game by Namide\n(Damien Doussaud)\nwww.namide.com";
-			author.setPos( 1280 - (author.textWidth + 32), 720 - (author.textHeight + 32) );
+			author.setPos( 1024 - (author.textWidth + 32), 720 - (author.textHeight + 32) );
 			
 		}
 		else if ( _score == null )
@@ -87,7 +112,7 @@ class Render
 			_score.textColor = 0xFFFFFF;
 			_score.textAlign = Align.Right;
 			_score.maxWidth = 256;
-			_score.setPos( 1280 - (_score.maxWidth+32) , 32 );
+			_score.setPos( 1024 - (_score.maxWidth+32) , 32 );
 		}
 
 		if ( _score != null && tm != null )
@@ -116,13 +141,16 @@ class Render
 		engine.onResized = function() {
 			s2d.checkResize();
 			onResize();
+			
 		};
 		s3d = new h3d.scene.Scene();
 		s2d = new h2d.Scene();
-		s2d.setFixedSize(1280, 720);
+		s2d.setFixedSize(1024, 720);
+		
 		s3d.addPass(s2d);
 		
 		engine.backgroundColor = 0x000000;
+		//engine.setRenderZone(0, 0, 1280, 720);
 		
 		var p = Tilemap.getNeutralPos();
 		s3d.camera.zoom = 4;
@@ -182,7 +210,7 @@ class Render
 		_tile = _tile.center();
 		_msg = new h2d.Bitmap(_tile, s2d);
 		// move its position
-		_msg.x = 1280 * 0.5;
+		_msg.x = 1024 * 0.5;
 		_msg.y = 720 * 0.7;
 		
 		if ( time > 0 )

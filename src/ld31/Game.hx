@@ -42,13 +42,15 @@ class Game
 	var _msgNum:Int;
 	
 	var _restart:Void->Void;
+	var _sound:Sound;
 	
-	public function new( restart ) 
+	public function new( restart, sound ) 
 	{
 		_tm = new Tilemap();
 		_playerControl = new PlayerControl();
 		_graphic = new Render( start );
 		_restart = restart;
+		_sound = sound;
 	}
 	
 	public function start()
@@ -130,7 +132,7 @@ class Game
 		}
 		
 		if ( Key.isReleased( Key.F11 ) ) _graphic.engine.fullScreen = true; // F
-		if ( Key.isReleased( Key.ENTER ) ) _restart(); // R
+		if ( Key.isReleased( Key.ENTER ) && _restart != null ) _restart(); // R
 	}
 	
 	function orbital()
@@ -145,7 +147,7 @@ class Game
 		TweenX.to( _playerMesh, {z:0} )
 				.time( 0.5 )
 				.ease( EaseX.circIn )
-				.onFinish( function():Void { _playerControl.blockControls = false; } );
+				.onFinish( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );
 	}
 	
 	public function changeDir(newDir:Dir)
@@ -153,7 +155,7 @@ class Game
 		_dir = newDir;
 		_graphic.rot( _dir );
 		if ( _pol != null ) _pol.rot( _dir );
-		
+		//_sound.playSound();
 		// AVOID ORBITAL
 		//_playerControl.vx = 0.0;
 		//_playerControl.vy = 0.2;
@@ -214,12 +216,15 @@ class Game
 		_graphic.changeScore( _tm );
 		
 		if ( _tm.squareIn + _tm.squareOut >= _tm.squareMax )
-			finish(); 
+			finish();
+		_sound.playSound();
+		
 	}
 	
 	function finish()
 	{
 		_playerControl.blockControls = true;
+		_sound.playSound();
 		if ( _tm.squareIn >= Tilemap.SIDE_NUM_X * Tilemap.SIDE_NUM_Y - 1 )
 		{
 			_graphic.addMsg( 6 );
@@ -232,15 +237,19 @@ class Game
 	
 	public function dispose()
 	{
+		_restart = null;
 		hxd.System.setLoop(function() { } );
 		/*_graphic.s2d.dispose();
 		_graphic.s3d.dispose();
 		_graphic.engine.dispose();
 		CubeMesh.DISPOSE();
 		CubePrim.DISPOSE();*/
+		//_graphic.s3d.remove();
+		//_graphic.s2d.remove();
+		
 		TweenX.clear();
-		_graphic.s3d.remove();
-		_graphic.s2d.remove();
+		
+		_graphic.dispose();
 	}
 	
 }

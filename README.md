@@ -1,10 +1,22 @@
-ludum-dare-31
+Polyfill
 ===
 
 * Game created in one weekend during the Ludum Dare #31
 * Theme: "Entire Game on One Screen"
 
-	
+
+How to play
+---
+* Left and right arrows to move and change side
+* Spacebar to jump
+* Down arrow to add a polyomino on the ground
+
+
+Objective
+---
+Fill the square without holes and without square out of the bounds
+
+
 Dependencies
 ---
 
@@ -16,15 +28,5 @@ Details
 ---
 
 * Language: Haxe 3
-	* FlashPlayer: >11 or
-	* WebGL
+* FlashPlayer: >11.5
  
- 
-Todo list
----
-
-* score system and layout
-* main screen?
-* tutorial to play
-* WebGL and Flash page for switch
-* sounds & music
