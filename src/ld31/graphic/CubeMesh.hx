@@ -124,5 +124,15 @@ class CubeMesh extends Mesh
 		return getMatBlack();
 	}
 	
-	
+	public static function DISPOSE()
+	{
+		_MAT_B = null;
+		_MAT_B_G = null;
+		_MAT_BLACK = null;
+		_MAT_G = null;
+		_MAT_G_G = null;
+		_MAT_OUT = null;
+		_MAT_R = null;
+		_MAT_R_G = null;
+	}
 }

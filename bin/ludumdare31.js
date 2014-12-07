@@ -6,6 +6,18 @@ function $extend(from, fields) {
 	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
 	return proto;
 }
+var EReg = function(r,opt) {
+	opt = opt.split("u").join("");
+	this.r = new RegExp(r,opt);
+};
+$hxClasses["EReg"] = EReg;
+EReg.__name__ = ["EReg"];
+EReg.prototype = {
+	replace: function(s,by) {
+		return s.replace(this.r,by);
+	}
+	,__class__: EReg
+};
 var HxOverrides = function() { };
 $hxClasses["HxOverrides"] = HxOverrides;
 HxOverrides.__name__ = ["HxOverrides"];
@@ -243,6 +255,16 @@ StringTools.rtrim = function(s) {
 StringTools.trim = function(s) {
 	return StringTools.ltrim(StringTools.rtrim(s));
 };
+StringTools.hex = function(n,digits) {
+	var s = "";
+	var hexChars = "0123456789ABCDEF";
+	do {
+		s = hexChars.charAt(n & 15) + s;
+		n >>>= 4;
+	} while(n > 0);
+	if(digits != null) while(s.length < digits) s = "0" + s;
+	return s;
+};
 StringTools.fastCodeAt = function(s,index) {
 	return s.charCodeAt(index);
 };
@@ -304,6 +326,1329 @@ Type.enumEq = function(a,b) {
 };
 Type.allEnums = function(e) {
 	return e.__empty_constructs__;
+};
+var format = {};
+format.png = {};
+format.png.Color = $hxClasses["format.png.Color"] = { __ename__ : true, __constructs__ : ["ColGrey","ColTrue","ColIndexed"] };
+format.png.Color.ColGrey = function(alpha) { var $x = ["ColGrey",0,alpha]; $x.__enum__ = format.png.Color; $x.toString = $estr; return $x; };
+format.png.Color.ColTrue = function(alpha) { var $x = ["ColTrue",1,alpha]; $x.__enum__ = format.png.Color; $x.toString = $estr; return $x; };
+format.png.Color.ColIndexed = ["ColIndexed",2];
+format.png.Color.ColIndexed.toString = $estr;
+format.png.Color.ColIndexed.__enum__ = format.png.Color;
+format.png.Color.__empty_constructs__ = [format.png.Color.ColIndexed];
+format.png.Chunk = $hxClasses["format.png.Chunk"] = { __ename__ : true, __constructs__ : ["CEnd","CHeader","CData","CPalette","CUnknown"] };
+format.png.Chunk.CEnd = ["CEnd",0];
+format.png.Chunk.CEnd.toString = $estr;
+format.png.Chunk.CEnd.__enum__ = format.png.Chunk;
+format.png.Chunk.CHeader = function(h) { var $x = ["CHeader",1,h]; $x.__enum__ = format.png.Chunk; $x.toString = $estr; return $x; };
+format.png.Chunk.CData = function(b) { var $x = ["CData",2,b]; $x.__enum__ = format.png.Chunk; $x.toString = $estr; return $x; };
+format.png.Chunk.CPalette = function(b) { var $x = ["CPalette",3,b]; $x.__enum__ = format.png.Chunk; $x.toString = $estr; return $x; };
+format.png.Chunk.CUnknown = function(id,data) { var $x = ["CUnknown",4,id,data]; $x.__enum__ = format.png.Chunk; $x.toString = $estr; return $x; };
+format.png.Chunk.__empty_constructs__ = [format.png.Chunk.CEnd];
+format.png.Reader = function(i) {
+	this.i = i;
+	i.set_bigEndian(true);
+	this.checkCRC = true;
+};
+$hxClasses["format.png.Reader"] = format.png.Reader;
+format.png.Reader.__name__ = ["format","png","Reader"];
+format.png.Reader.prototype = {
+	read: function() {
+		var _g = 0;
+		var _g1 = [137,80,78,71,13,10,26,10];
+		while(_g < _g1.length) {
+			var b = _g1[_g];
+			++_g;
+			if(this.i.readByte() != b) throw "Invalid header";
+		}
+		var l = new List();
+		while(true) {
+			var c = this.readChunk();
+			l.add(c);
+			if(c == format.png.Chunk.CEnd) break;
+		}
+		return l;
+	}
+	,readHeader: function(i) {
+		i.set_bigEndian(true);
+		var width = i.readInt32();
+		var height = i.readInt32();
+		var colbits = i.readByte();
+		var color = i.readByte();
+		var color1;
+		switch(color) {
+		case 0:
+			color1 = format.png.Color.ColGrey(false);
+			break;
+		case 2:
+			color1 = format.png.Color.ColTrue(false);
+			break;
+		case 3:
+			color1 = format.png.Color.ColIndexed;
+			break;
+		case 4:
+			color1 = format.png.Color.ColGrey(true);
+			break;
+		case 6:
+			color1 = format.png.Color.ColTrue(true);
+			break;
+		default:
+			throw "Unknown color model " + color + ":" + colbits;
+		}
+		var compress = i.readByte();
+		var filter = i.readByte();
+		if(compress != 0 || filter != 0) throw "Invalid header";
+		var interlace = i.readByte();
+		if(interlace != 0 && interlace != 1) throw "Invalid header";
+		return { width : width, height : height, colbits : colbits, color : color1, interlaced : interlace == 1};
+	}
+	,readChunk: function() {
+		var dataLen = this.i.readInt32();
+		var id = this.i.readString(4);
+		var data = this.i.read(dataLen);
+		var crc = this.i.readInt32();
+		if(this.checkCRC) {
+			var c = new haxe.crypto.Crc32();
+			var _g = 0;
+			while(_g < 4) {
+				var i = _g++;
+				c["byte"](HxOverrides.cca(id,i));
+			}
+			c.update(data,0,data.length);
+			if(c.get() != crc) throw "CRC check failure";
+		}
+		switch(id) {
+		case "IEND":
+			return format.png.Chunk.CEnd;
+		case "IHDR":
+			return format.png.Chunk.CHeader(this.readHeader(new haxe.io.BytesInput(data)));
+		case "IDAT":
+			return format.png.Chunk.CData(data);
+		case "PLTE":
+			return format.png.Chunk.CPalette(data);
+		default:
+			return format.png.Chunk.CUnknown(id,data);
+		}
+	}
+	,__class__: format.png.Reader
+};
+format.png.Tools = function() { };
+$hxClasses["format.png.Tools"] = format.png.Tools;
+format.png.Tools.__name__ = ["format","png","Tools"];
+format.png.Tools.getHeader = function(d) {
+	var $it0 = d.iterator();
+	while( $it0.hasNext() ) {
+		var c = $it0.next();
+		switch(c[1]) {
+		case 1:
+			var h = c[2];
+			return h;
+		default:
+		}
+	}
+	throw "Header not found";
+};
+format.png.Tools.getPalette = function(d) {
+	var $it0 = d.iterator();
+	while( $it0.hasNext() ) {
+		var c = $it0.next();
+		switch(c[1]) {
+		case 3:
+			var b = c[2];
+			return b;
+		default:
+		}
+	}
+	return null;
+};
+format.png.Tools.filter = function(data,x,y,stride,prev,p,numChannels) {
+	if(numChannels == null) numChannels = 4;
+	var b;
+	if(y == 0) b = 0; else b = data.b[p - stride];
+	var c;
+	if(x == 0 || y == 0) c = 0; else c = data.b[p - stride - numChannels];
+	var k = prev + b - c;
+	var pa = k - prev;
+	if(pa < 0) pa = -pa;
+	var pb = k - b;
+	if(pb < 0) pb = -pb;
+	var pc = k - c;
+	if(pc < 0) pc = -pc;
+	if(pa <= pb && pa <= pc) return prev; else if(pb <= pc) return b; else return c;
+};
+format.png.Tools.extract32 = function(d,bytes) {
+	var h = format.png.Tools.getHeader(d);
+	var bgra;
+	if(bytes == null) bgra = haxe.io.Bytes.alloc(h.width * h.height * 4); else bgra = bytes;
+	var data = null;
+	var fullData = null;
+	var $it0 = d.iterator();
+	while( $it0.hasNext() ) {
+		var c = $it0.next();
+		switch(c[1]) {
+		case 2:
+			var b = c[2];
+			if(fullData != null) fullData.add(b); else if(data == null) data = b; else {
+				fullData = new haxe.io.BytesBuffer();
+				fullData.add(data);
+				fullData.add(b);
+				data = null;
+			}
+			break;
+		default:
+		}
+	}
+	if(fullData != null) data = fullData.getBytes();
+	if(data == null) throw "Data not found";
+	data = format.tools.Inflate.run(data);
+	var r = 0;
+	var w = 0;
+	{
+		var _g = h.color;
+		switch(_g[1]) {
+		case 2:
+			var pal = format.png.Tools.getPalette(d);
+			if(pal == null) throw "PNG Palette is missing";
+			var alpha = null;
+			try {
+				var $it1 = d.iterator();
+				while( $it1.hasNext() ) {
+					var t = $it1.next();
+					switch(t[1]) {
+					case 4:
+						switch(t[2]) {
+						case "tRNS":
+							var data1 = t[3];
+							alpha = data1;
+							throw "__break__";
+							break;
+						default:
+						}
+						break;
+					default:
+					}
+				}
+			} catch( e ) { if( e != "__break__" ) throw e; }
+			if(alpha != null && alpha.length < 1 << h.colbits) {
+				var alpha2 = haxe.io.Bytes.alloc(1 << h.colbits);
+				alpha2.blit(0,alpha,0,alpha.length);
+				alpha2.fill(alpha.length,alpha2.length - alpha.length,255);
+				alpha = alpha2;
+			}
+			var width = h.width;
+			var stride = Math.ceil(width * h.colbits / 8) + 1;
+			if(data.length < h.height * stride) throw "Not enough data";
+			var vr;
+			var vg;
+			var vb;
+			var va = 255;
+			if(h.colbits == 8) {
+				var _g2 = 0;
+				var _g1 = h.height;
+				while(_g2 < _g1) {
+					var y = _g2++;
+					var f = data.get(r++);
+					switch(f) {
+					case 0:
+						var _g11 = 0;
+						while(_g11 < width) {
+							var x = _g11++;
+							var c1 = data.get(r++);
+							vr = pal.b[c1 * 3];
+							vg = pal.b[c1 * 3 + 1];
+							vb = pal.b[c1 * 3 + 2];
+							if(alpha != null) va = alpha.b[c1];
+							bgra.set(w++,vb);
+							bgra.set(w++,vg);
+							bgra.set(w++,vr);
+							bgra.set(w++,va);
+						}
+						break;
+					case 1:
+						var cr = 0;
+						var cg = 0;
+						var cb = 0;
+						var ca = 0;
+						var _g12 = 0;
+						while(_g12 < width) {
+							var x1 = _g12++;
+							var c2 = data.get(r++);
+							vr = pal.b[c2 * 3];
+							vg = pal.b[c2 * 3 + 1];
+							vb = pal.b[c2 * 3 + 2];
+							if(alpha != null) va = alpha.b[c2];
+							cb += vb;
+							bgra.set(w++,cb);
+							cg += vg;
+							bgra.set(w++,cg);
+							cr += vr;
+							bgra.set(w++,cr);
+							ca += va;
+							bgra.set(w++,ca);
+							bgra.set(w++,va);
+						}
+						break;
+					case 2:
+						var stride1;
+						if(y == 0) stride1 = 0; else stride1 = width * 4;
+						var _g13 = 0;
+						while(_g13 < width) {
+							var x2 = _g13++;
+							var c3 = data.get(r++);
+							vr = pal.b[c3 * 3];
+							vg = pal.b[c3 * 3 + 1];
+							vb = pal.b[c3 * 3 + 2];
+							if(alpha != null) va = alpha.b[c3];
+							bgra.b[w] = vb + bgra.b[w - stride1] & 255;
+							w++;
+							bgra.b[w] = vg + bgra.b[w - stride1] & 255;
+							w++;
+							bgra.b[w] = vr + bgra.b[w - stride1] & 255;
+							w++;
+							bgra.b[w] = va + bgra.b[w - stride1] & 255;
+							w++;
+						}
+						break;
+					case 3:
+						var cr1 = 0;
+						var cg1 = 0;
+						var cb1 = 0;
+						var ca1 = 0;
+						var stride2;
+						if(y == 0) stride2 = 0; else stride2 = width * 4;
+						var _g14 = 0;
+						while(_g14 < width) {
+							var x3 = _g14++;
+							var c4 = data.get(r++);
+							vr = pal.b[c4 * 3];
+							vg = pal.b[c4 * 3 + 1];
+							vb = pal.b[c4 * 3 + 2];
+							if(alpha != null) va = alpha.b[c4];
+							cb1 = vb + (cb1 + bgra.b[w - stride2] >> 1) & 255;
+							bgra.set(w++,cb1);
+							cg1 = vg + (cg1 + bgra.b[w - stride2] >> 1) & 255;
+							bgra.set(w++,cg1);
+							cr1 = vr + (cr1 + bgra.b[w - stride2] >> 1) & 255;
+							bgra.set(w++,cr1);
+							cr1 = va + (ca1 + bgra.b[w - stride2] >> 1) & 255;
+							bgra.set(w++,ca1);
+						}
+						break;
+					case 4:
+						var stride3 = width * 4;
+						var cr2 = 0;
+						var cg2 = 0;
+						var cb2 = 0;
+						var ca2 = 0;
+						var _g15 = 0;
+						while(_g15 < width) {
+							var x4 = _g15++;
+							var c5 = data.get(r++);
+							vr = pal.b[c5 * 3];
+							vg = pal.b[c5 * 3 + 1];
+							vb = pal.b[c5 * 3 + 2];
+							if(alpha != null) va = alpha.b[c5];
+							cb2 = format.png.Tools.filter(bgra,x4,y,stride3,cb2,w,null) + vb & 255;
+							bgra.set(w++,cb2);
+							cg2 = format.png.Tools.filter(bgra,x4,y,stride3,cg2,w,null) + vg & 255;
+							bgra.set(w++,cg2);
+							cr2 = format.png.Tools.filter(bgra,x4,y,stride3,cr2,w,null) + vr & 255;
+							bgra.set(w++,cr2);
+							ca2 = format.png.Tools.filter(bgra,x4,y,stride3,ca2,w,null) + va & 255;
+							bgra.set(w++,ca2);
+						}
+						break;
+					default:
+						throw "Invalid filter " + f;
+					}
+				}
+			} else if(h.colbits < 8) {
+				var req = h.colbits;
+				var mask = (1 << req) - 1;
+				var _g21 = 0;
+				var _g16 = h.height;
+				while(_g21 < _g16) {
+					var y1 = _g21++;
+					var f1 = data.get(r++);
+					var bits = 0;
+					var nbits = 0;
+					var v;
+					switch(f1) {
+					case 0:
+						var _g17 = 0;
+						while(_g17 < width) {
+							var x5 = _g17++;
+							var c6;
+							if(nbits < req) {
+								bits = bits << 8 | data.get(r++);
+								nbits += 8;
+							}
+							v = bits >>> nbits - req & mask;
+							nbits -= req;
+							c6 = v;
+							vr = pal.b[c6 * 3];
+							vg = pal.b[c6 * 3 + 1];
+							vb = pal.b[c6 * 3 + 2];
+							if(alpha != null) va = alpha.b[c6];
+							bgra.set(w++,vb);
+							bgra.set(w++,vg);
+							bgra.set(w++,vr);
+							bgra.set(w++,va);
+						}
+						break;
+					case 1:
+						var cr3 = 0;
+						var cg3 = 0;
+						var cb3 = 0;
+						var ca3 = 0;
+						var _g18 = 0;
+						while(_g18 < width) {
+							var x6 = _g18++;
+							var c7;
+							if(nbits < req) {
+								bits = bits << 8 | data.get(r++);
+								nbits += 8;
+							}
+							v = bits >>> nbits - req & mask;
+							nbits -= req;
+							c7 = v;
+							vr = pal.b[c7 * 3];
+							vg = pal.b[c7 * 3 + 1];
+							vb = pal.b[c7 * 3 + 2];
+							if(alpha != null) va = alpha.b[c7];
+							cb3 += vb;
+							bgra.set(w++,cb3);
+							cg3 += vg;
+							bgra.set(w++,cg3);
+							cr3 += vr;
+							bgra.set(w++,cr3);
+							ca3 += va;
+							bgra.set(w++,ca3);
+							bgra.set(w++,va);
+						}
+						break;
+					case 2:
+						var stride4;
+						if(y1 == 0) stride4 = 0; else stride4 = width * 4;
+						var _g19 = 0;
+						while(_g19 < width) {
+							var x7 = _g19++;
+							var c8;
+							if(nbits < req) {
+								bits = bits << 8 | data.get(r++);
+								nbits += 8;
+							}
+							v = bits >>> nbits - req & mask;
+							nbits -= req;
+							c8 = v;
+							vr = pal.b[c8 * 3];
+							vg = pal.b[c8 * 3 + 1];
+							vb = pal.b[c8 * 3 + 2];
+							if(alpha != null) va = alpha.b[c8];
+							bgra.b[w] = vb + bgra.b[w - stride4] & 255;
+							w++;
+							bgra.b[w] = vg + bgra.b[w - stride4] & 255;
+							w++;
+							bgra.b[w] = vr + bgra.b[w - stride4] & 255;
+							w++;
+							bgra.b[w] = va + bgra.b[w - stride4] & 255;
+							w++;
+						}
+						break;
+					case 3:
+						var cr4 = 0;
+						var cg4 = 0;
+						var cb4 = 0;
+						var ca4 = 0;
+						var stride5;
+						if(y1 == 0) stride5 = 0; else stride5 = width * 4;
+						var _g110 = 0;
+						while(_g110 < width) {
+							var x8 = _g110++;
+							var c9;
+							if(nbits < req) {
+								bits = bits << 8 | data.get(r++);
+								nbits += 8;
+							}
+							v = bits >>> nbits - req & mask;
+							nbits -= req;
+							c9 = v;
+							vr = pal.b[c9 * 3];
+							vg = pal.b[c9 * 3 + 1];
+							vb = pal.b[c9 * 3 + 2];
+							if(alpha != null) va = alpha.b[c9];
+							cb4 = vb + (cb4 + bgra.b[w - stride5] >> 1) & 255;
+							bgra.set(w++,cb4);
+							cg4 = vg + (cg4 + bgra.b[w - stride5] >> 1) & 255;
+							bgra.set(w++,cg4);
+							cr4 = vr + (cr4 + bgra.b[w - stride5] >> 1) & 255;
+							bgra.set(w++,cr4);
+							cr4 = va + (ca4 + bgra.b[w - stride5] >> 1) & 255;
+							bgra.set(w++,ca4);
+						}
+						break;
+					case 4:
+						var stride6 = width * 4;
+						var cr5 = 0;
+						var cg5 = 0;
+						var cb5 = 0;
+						var ca5 = 0;
+						var _g111 = 0;
+						while(_g111 < width) {
+							var x9 = _g111++;
+							var c10;
+							if(nbits < req) {
+								bits = bits << 8 | data.get(r++);
+								nbits += 8;
+							}
+							v = bits >>> nbits - req & mask;
+							nbits -= req;
+							c10 = v;
+							vr = pal.b[c10 * 3];
+							vg = pal.b[c10 * 3 + 1];
+							vb = pal.b[c10 * 3 + 2];
+							if(alpha != null) va = alpha.b[c10];
+							cb5 = format.png.Tools.filter(bgra,x9,y1,stride6,cb5,w,null) + vb & 255;
+							bgra.set(w++,cb5);
+							cg5 = format.png.Tools.filter(bgra,x9,y1,stride6,cg5,w,null) + vg & 255;
+							bgra.set(w++,cg5);
+							cr5 = format.png.Tools.filter(bgra,x9,y1,stride6,cr5,w,null) + vr & 255;
+							bgra.set(w++,cr5);
+							ca5 = format.png.Tools.filter(bgra,x9,y1,stride6,ca5,w,null) + va & 255;
+							bgra.set(w++,ca5);
+						}
+						break;
+					default:
+						throw "Invalid filter " + f1;
+					}
+				}
+			} else throw h.colbits + " indexed bits per pixel not supported";
+			break;
+		case 0:
+			var alpha1 = _g[2];
+			if(h.colbits != 8) throw "Unsupported color mode";
+			var width1 = h.width;
+			var stride7;
+			stride7 = (alpha1?2:1) * width1 + 1;
+			if(data.length < h.height * stride7) throw "Not enough data";
+			var _g22 = 0;
+			var _g112 = h.height;
+			while(_g22 < _g112) {
+				var y2 = _g22++;
+				var f2 = data.get(r++);
+				switch(f2) {
+				case 0:
+					if(alpha1) {
+						var _g3 = 0;
+						while(_g3 < width1) {
+							var x10 = _g3++;
+							var v1 = data.get(r++);
+							bgra.set(w++,v1);
+							bgra.set(w++,v1);
+							bgra.set(w++,v1);
+							bgra.set(w++,data.get(r++));
+						}
+					} else {
+						var _g31 = 0;
+						while(_g31 < width1) {
+							var x11 = _g31++;
+							var v2 = data.get(r++);
+							bgra.set(w++,v2);
+							bgra.set(w++,v2);
+							bgra.set(w++,v2);
+							bgra.set(w++,255);
+						}
+					}
+					break;
+				case 1:
+					var cv = 0;
+					var ca6 = 0;
+					if(alpha1) {
+						var _g32 = 0;
+						while(_g32 < width1) {
+							var x12 = _g32++;
+							cv += data.get(r++);
+							bgra.set(w++,cv);
+							bgra.set(w++,cv);
+							bgra.set(w++,cv);
+							ca6 += data.get(r++);
+							bgra.set(w++,ca6);
+						}
+					} else {
+						var _g33 = 0;
+						while(_g33 < width1) {
+							var x13 = _g33++;
+							cv += data.get(r++);
+							bgra.set(w++,cv);
+							bgra.set(w++,cv);
+							bgra.set(w++,cv);
+							bgra.set(w++,255);
+						}
+					}
+					break;
+				case 2:
+					var stride8;
+					if(y2 == 0) stride8 = 0; else stride8 = width1 * 4;
+					if(alpha1) {
+						var _g34 = 0;
+						while(_g34 < width1) {
+							var x14 = _g34++;
+							var v3 = data.get(r++) + bgra.b[w - stride8];
+							bgra.set(w++,v3);
+							bgra.set(w++,v3);
+							bgra.set(w++,v3);
+							bgra.set(w++,data.get(r++) + bgra.b[w - stride8]);
+						}
+					} else {
+						var _g35 = 0;
+						while(_g35 < width1) {
+							var x15 = _g35++;
+							var v4 = data.get(r++) + bgra.b[w - stride8];
+							bgra.set(w++,v4);
+							bgra.set(w++,v4);
+							bgra.set(w++,v4);
+							bgra.set(w++,255);
+						}
+					}
+					break;
+				case 3:
+					var cv1 = 0;
+					var ca7 = 0;
+					var stride9;
+					if(y2 == 0) stride9 = 0; else stride9 = width1 * 4;
+					if(alpha1) {
+						var _g36 = 0;
+						while(_g36 < width1) {
+							var x16 = _g36++;
+							cv1 = data.get(r++) + (cv1 + bgra.b[w - stride9] >> 1) & 255;
+							bgra.set(w++,cv1);
+							bgra.set(w++,cv1);
+							bgra.set(w++,cv1);
+							ca7 = data.get(r++) + (ca7 + bgra.b[w - stride9] >> 1) & 255;
+							bgra.set(w++,ca7);
+						}
+					} else {
+						var _g37 = 0;
+						while(_g37 < width1) {
+							var x17 = _g37++;
+							cv1 = data.get(r++) + (cv1 + bgra.b[w - stride9] >> 1) & 255;
+							bgra.set(w++,cv1);
+							bgra.set(w++,cv1);
+							bgra.set(w++,cv1);
+							bgra.set(w++,255);
+						}
+					}
+					break;
+				case 4:
+					var stride10 = width1 * 4;
+					var cv2 = 0;
+					var ca8 = 0;
+					if(alpha1) {
+						var _g38 = 0;
+						while(_g38 < width1) {
+							var x18 = _g38++;
+							cv2 = format.png.Tools.filter(bgra,x18,y2,stride10,cv2,w,null) + data.get(r++) & 255;
+							bgra.set(w++,cv2);
+							bgra.set(w++,cv2);
+							bgra.set(w++,cv2);
+							ca8 = format.png.Tools.filter(bgra,x18,y2,stride10,ca8,w,null) + data.get(r++) & 255;
+							bgra.set(w++,ca8);
+						}
+					} else {
+						var _g39 = 0;
+						while(_g39 < width1) {
+							var x19 = _g39++;
+							cv2 = format.png.Tools.filter(bgra,x19,y2,stride10,cv2,w,null) + data.get(r++) & 255;
+							bgra.set(w++,cv2);
+							bgra.set(w++,cv2);
+							bgra.set(w++,cv2);
+							bgra.set(w++,255);
+						}
+					}
+					break;
+				default:
+					throw "Invalid filter " + f2;
+				}
+			}
+			break;
+		case 1:
+			var alpha3 = _g[2];
+			if(h.colbits != 8) throw "Unsupported color mode";
+			var width2 = h.width;
+			var stride11;
+			stride11 = (alpha3?4:3) * width2 + 1;
+			if(data.length < h.height * stride11) throw "Not enough data";
+			var _g23 = 0;
+			var _g113 = h.height;
+			while(_g23 < _g113) {
+				var y3 = _g23++;
+				var f3 = data.get(r++);
+				switch(f3) {
+				case 0:
+					if(alpha3) {
+						var _g310 = 0;
+						while(_g310 < width2) {
+							var x20 = _g310++;
+							bgra.set(w++,data.b[r + 2]);
+							bgra.set(w++,data.b[r + 1]);
+							bgra.set(w++,data.b[r]);
+							bgra.set(w++,data.b[r + 3]);
+							r += 4;
+						}
+					} else {
+						var _g311 = 0;
+						while(_g311 < width2) {
+							var x21 = _g311++;
+							bgra.set(w++,data.b[r + 2]);
+							bgra.set(w++,data.b[r + 1]);
+							bgra.set(w++,data.b[r]);
+							bgra.set(w++,255);
+							r += 3;
+						}
+					}
+					break;
+				case 1:
+					var cr6 = 0;
+					var cg6 = 0;
+					var cb6 = 0;
+					var ca9 = 0;
+					if(alpha3) {
+						var _g312 = 0;
+						while(_g312 < width2) {
+							var x22 = _g312++;
+							cb6 += data.b[r + 2];
+							bgra.set(w++,cb6);
+							cg6 += data.b[r + 1];
+							bgra.set(w++,cg6);
+							cr6 += data.b[r];
+							bgra.set(w++,cr6);
+							ca9 += data.b[r + 3];
+							bgra.set(w++,ca9);
+							r += 4;
+						}
+					} else {
+						var _g313 = 0;
+						while(_g313 < width2) {
+							var x23 = _g313++;
+							cb6 += data.b[r + 2];
+							bgra.set(w++,cb6);
+							cg6 += data.b[r + 1];
+							bgra.set(w++,cg6);
+							cr6 += data.b[r];
+							bgra.set(w++,cr6);
+							bgra.set(w++,255);
+							r += 3;
+						}
+					}
+					break;
+				case 2:
+					var stride12;
+					if(y3 == 0) stride12 = 0; else stride12 = width2 * 4;
+					if(alpha3) {
+						var _g314 = 0;
+						while(_g314 < width2) {
+							var x24 = _g314++;
+							bgra.b[w] = data.b[r + 2] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.b[w] = data.b[r + 1] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.b[w] = data.b[r] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.b[w] = data.b[r + 3] + bgra.b[w - stride12] & 255;
+							w++;
+							r += 4;
+						}
+					} else {
+						var _g315 = 0;
+						while(_g315 < width2) {
+							var x25 = _g315++;
+							bgra.b[w] = data.b[r + 2] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.b[w] = data.b[r + 1] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.b[w] = data.b[r] + bgra.b[w - stride12] & 255;
+							w++;
+							bgra.set(w++,255);
+							r += 3;
+						}
+					}
+					break;
+				case 3:
+					var cr7 = 0;
+					var cg7 = 0;
+					var cb7 = 0;
+					var ca10 = 0;
+					var stride13;
+					if(y3 == 0) stride13 = 0; else stride13 = width2 * 4;
+					if(alpha3) {
+						var _g316 = 0;
+						while(_g316 < width2) {
+							var x26 = _g316++;
+							cb7 = data.b[r + 2] + (cb7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cb7);
+							cg7 = data.b[r + 1] + (cg7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cg7);
+							cr7 = data.b[r] + (cr7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cr7);
+							ca10 = data.b[r + 3] + (ca10 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,ca10);
+							r += 4;
+						}
+					} else {
+						var _g317 = 0;
+						while(_g317 < width2) {
+							var x27 = _g317++;
+							cb7 = data.b[r + 2] + (cb7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cb7);
+							cg7 = data.b[r + 1] + (cg7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cg7);
+							cr7 = data.b[r] + (cr7 + bgra.b[w - stride13] >> 1) & 255;
+							bgra.set(w++,cr7);
+							bgra.set(w++,255);
+							r += 3;
+						}
+					}
+					break;
+				case 4:
+					var stride14 = width2 * 4;
+					var cr8 = 0;
+					var cg8 = 0;
+					var cb8 = 0;
+					var ca11 = 0;
+					if(alpha3) {
+						var _g318 = 0;
+						while(_g318 < width2) {
+							var x28 = _g318++;
+							cb8 = format.png.Tools.filter(bgra,x28,y3,stride14,cb8,w,null) + data.b[r + 2] & 255;
+							bgra.set(w++,cb8);
+							cg8 = format.png.Tools.filter(bgra,x28,y3,stride14,cg8,w,null) + data.b[r + 1] & 255;
+							bgra.set(w++,cg8);
+							cr8 = format.png.Tools.filter(bgra,x28,y3,stride14,cr8,w,null) + data.b[r] & 255;
+							bgra.set(w++,cr8);
+							ca11 = format.png.Tools.filter(bgra,x28,y3,stride14,ca11,w,null) + data.b[r + 3] & 255;
+							bgra.set(w++,ca11);
+							r += 4;
+						}
+					} else {
+						var _g319 = 0;
+						while(_g319 < width2) {
+							var x29 = _g319++;
+							cb8 = format.png.Tools.filter(bgra,x29,y3,stride14,cb8,w,null) + data.b[r + 2] & 255;
+							bgra.set(w++,cb8);
+							cg8 = format.png.Tools.filter(bgra,x29,y3,stride14,cg8,w,null) + data.b[r + 1] & 255;
+							bgra.set(w++,cg8);
+							cr8 = format.png.Tools.filter(bgra,x29,y3,stride14,cr8,w,null) + data.b[r] & 255;
+							bgra.set(w++,cr8);
+							bgra.set(w++,255);
+							r += 3;
+						}
+					}
+					break;
+				default:
+					throw "Invalid filter " + f3;
+				}
+			}
+			break;
+		}
+	}
+	return bgra;
+};
+format.tools = {};
+format.tools.Adler32 = function() {
+	this.a1 = 1;
+	this.a2 = 0;
+};
+$hxClasses["format.tools.Adler32"] = format.tools.Adler32;
+format.tools.Adler32.__name__ = ["format","tools","Adler32"];
+format.tools.Adler32.read = function(i) {
+	var a = new format.tools.Adler32();
+	var a2a = i.readByte();
+	var a2b = i.readByte();
+	var a1a = i.readByte();
+	var a1b = i.readByte();
+	a.a1 = a1a << 8 | a1b;
+	a.a2 = a2a << 8 | a2b;
+	return a;
+};
+format.tools.Adler32.prototype = {
+	update: function(b,pos,len) {
+		var a1 = this.a1;
+		var a2 = this.a2;
+		var _g1 = pos;
+		var _g = pos + len;
+		while(_g1 < _g) {
+			var p = _g1++;
+			var c = b.b[p];
+			a1 = (a1 + c) % 65521;
+			a2 = (a2 + a1) % 65521;
+		}
+		this.a1 = a1;
+		this.a2 = a2;
+	}
+	,equals: function(a) {
+		return a.a1 == this.a1 && a.a2 == this.a2;
+	}
+	,__class__: format.tools.Adler32
+};
+format.tools.Huffman = $hxClasses["format.tools.Huffman"] = { __ename__ : true, __constructs__ : ["Found","NeedBit","NeedBits"] };
+format.tools.Huffman.Found = function(i) { var $x = ["Found",0,i]; $x.__enum__ = format.tools.Huffman; $x.toString = $estr; return $x; };
+format.tools.Huffman.NeedBit = function(left,right) { var $x = ["NeedBit",1,left,right]; $x.__enum__ = format.tools.Huffman; $x.toString = $estr; return $x; };
+format.tools.Huffman.NeedBits = function(n,table) { var $x = ["NeedBits",2,n,table]; $x.__enum__ = format.tools.Huffman; $x.toString = $estr; return $x; };
+format.tools.Huffman.__empty_constructs__ = [];
+format.tools.HuffTools = function() {
+};
+$hxClasses["format.tools.HuffTools"] = format.tools.HuffTools;
+format.tools.HuffTools.__name__ = ["format","tools","HuffTools"];
+format.tools.HuffTools.prototype = {
+	treeDepth: function(t) {
+		switch(t[1]) {
+		case 0:
+			return 0;
+		case 2:
+			throw "assert";
+			break;
+		case 1:
+			var b = t[3];
+			var a = t[2];
+			var da = this.treeDepth(a);
+			var db = this.treeDepth(b);
+			return 1 + (da < db?da:db);
+		}
+	}
+	,treeCompress: function(t) {
+		var d = this.treeDepth(t);
+		if(d == 0) return t;
+		if(d == 1) switch(t[1]) {
+		case 1:
+			var b = t[3];
+			var a = t[2];
+			return format.tools.Huffman.NeedBit(this.treeCompress(a),this.treeCompress(b));
+		default:
+			throw "assert";
+		}
+		var size = 1 << d;
+		var table = new Array();
+		var _g = 0;
+		while(_g < size) {
+			var i = _g++;
+			table.push(format.tools.Huffman.Found(-1));
+		}
+		this.treeWalk(table,0,0,d,t);
+		return format.tools.Huffman.NeedBits(d,table);
+	}
+	,treeWalk: function(table,p,cd,d,t) {
+		switch(t[1]) {
+		case 1:
+			var b = t[3];
+			var a = t[2];
+			if(d > 0) {
+				this.treeWalk(table,p,cd + 1,d - 1,a);
+				this.treeWalk(table,p | 1 << cd,cd + 1,d - 1,b);
+			} else table[p] = this.treeCompress(t);
+			break;
+		default:
+			table[p] = this.treeCompress(t);
+		}
+	}
+	,treeMake: function(bits,maxbits,v,len) {
+		if(len > maxbits) throw "Invalid huffman";
+		var idx = v << 5 | len;
+		if(bits.exists(idx)) return format.tools.Huffman.Found(bits.get(idx));
+		v <<= 1;
+		len += 1;
+		return format.tools.Huffman.NeedBit(this.treeMake(bits,maxbits,v,len),this.treeMake(bits,maxbits,v | 1,len));
+	}
+	,make: function(lengths,pos,nlengths,maxbits) {
+		var counts = new Array();
+		var tmp = new Array();
+		if(maxbits > 32) throw "Invalid huffman";
+		var _g = 0;
+		while(_g < maxbits) {
+			var i = _g++;
+			counts.push(0);
+			tmp.push(0);
+		}
+		var _g1 = 0;
+		while(_g1 < nlengths) {
+			var i1 = _g1++;
+			var p = lengths[i1 + pos];
+			if(p >= maxbits) throw "Invalid huffman";
+			counts[p]++;
+		}
+		var code = 0;
+		var _g11 = 1;
+		var _g2 = maxbits - 1;
+		while(_g11 < _g2) {
+			var i2 = _g11++;
+			code = code + counts[i2] << 1;
+			tmp[i2] = code;
+		}
+		var bits = new haxe.ds.IntMap();
+		var _g3 = 0;
+		while(_g3 < nlengths) {
+			var i3 = _g3++;
+			var l = lengths[i3 + pos];
+			if(l != 0) {
+				var n = tmp[l - 1];
+				tmp[l - 1] = n + 1;
+				bits.set(n << 5 | l,i3);
+			}
+		}
+		return this.treeCompress(format.tools.Huffman.NeedBit(this.treeMake(bits,maxbits,0,1),this.treeMake(bits,maxbits,1,1)));
+	}
+	,__class__: format.tools.HuffTools
+};
+format.tools.Inflate = function() { };
+$hxClasses["format.tools.Inflate"] = format.tools.Inflate;
+format.tools.Inflate.__name__ = ["format","tools","Inflate"];
+format.tools.Inflate.run = function(bytes) {
+	return format.tools.InflateImpl.run(new haxe.io.BytesInput(bytes));
+};
+format.tools._InflateImpl = {};
+format.tools._InflateImpl.Window = function(hasCrc) {
+	this.buffer = haxe.io.Bytes.alloc(65536);
+	this.pos = 0;
+	if(hasCrc) this.crc = new format.tools.Adler32();
+};
+$hxClasses["format.tools._InflateImpl.Window"] = format.tools._InflateImpl.Window;
+format.tools._InflateImpl.Window.__name__ = ["format","tools","_InflateImpl","Window"];
+format.tools._InflateImpl.Window.prototype = {
+	slide: function() {
+		if(this.crc != null) this.crc.update(this.buffer,0,32768);
+		var b = haxe.io.Bytes.alloc(65536);
+		this.pos -= 32768;
+		b.blit(0,this.buffer,32768,this.pos);
+		this.buffer = b;
+	}
+	,addBytes: function(b,p,len) {
+		if(this.pos + len > 65536) this.slide();
+		this.buffer.blit(this.pos,b,p,len);
+		this.pos += len;
+	}
+	,addByte: function(c) {
+		if(this.pos == 65536) this.slide();
+		this.buffer.b[this.pos] = c & 255;
+		this.pos++;
+	}
+	,getLastChar: function() {
+		return this.buffer.b[this.pos - 1];
+	}
+	,available: function() {
+		return this.pos;
+	}
+	,checksum: function() {
+		if(this.crc != null) this.crc.update(this.buffer,0,this.pos);
+		return this.crc;
+	}
+	,__class__: format.tools._InflateImpl.Window
+};
+format.tools._InflateImpl.State = $hxClasses["format.tools._InflateImpl.State"] = { __ename__ : true, __constructs__ : ["Head","Block","CData","Flat","Crc","Dist","DistOne","Done"] };
+format.tools._InflateImpl.State.Head = ["Head",0];
+format.tools._InflateImpl.State.Head.toString = $estr;
+format.tools._InflateImpl.State.Head.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.Block = ["Block",1];
+format.tools._InflateImpl.State.Block.toString = $estr;
+format.tools._InflateImpl.State.Block.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.CData = ["CData",2];
+format.tools._InflateImpl.State.CData.toString = $estr;
+format.tools._InflateImpl.State.CData.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.Flat = ["Flat",3];
+format.tools._InflateImpl.State.Flat.toString = $estr;
+format.tools._InflateImpl.State.Flat.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.Crc = ["Crc",4];
+format.tools._InflateImpl.State.Crc.toString = $estr;
+format.tools._InflateImpl.State.Crc.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.Dist = ["Dist",5];
+format.tools._InflateImpl.State.Dist.toString = $estr;
+format.tools._InflateImpl.State.Dist.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.DistOne = ["DistOne",6];
+format.tools._InflateImpl.State.DistOne.toString = $estr;
+format.tools._InflateImpl.State.DistOne.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.Done = ["Done",7];
+format.tools._InflateImpl.State.Done.toString = $estr;
+format.tools._InflateImpl.State.Done.__enum__ = format.tools._InflateImpl.State;
+format.tools._InflateImpl.State.__empty_constructs__ = [format.tools._InflateImpl.State.Head,format.tools._InflateImpl.State.Block,format.tools._InflateImpl.State.CData,format.tools._InflateImpl.State.Flat,format.tools._InflateImpl.State.Crc,format.tools._InflateImpl.State.Dist,format.tools._InflateImpl.State.DistOne,format.tools._InflateImpl.State.Done];
+format.tools.InflateImpl = function(i,header,crc) {
+	if(crc == null) crc = true;
+	if(header == null) header = true;
+	this["final"] = false;
+	this.htools = new format.tools.HuffTools();
+	this.huffman = this.buildFixedHuffman();
+	this.huffdist = null;
+	this.len = 0;
+	this.dist = 0;
+	if(header) this.state = format.tools._InflateImpl.State.Head; else this.state = format.tools._InflateImpl.State.Block;
+	this.input = i;
+	this.bits = 0;
+	this.nbits = 0;
+	this.needed = 0;
+	this.output = null;
+	this.outpos = 0;
+	this.lengths = new Array();
+	var _g = 0;
+	while(_g < 19) {
+		var i1 = _g++;
+		this.lengths.push(-1);
+	}
+	this.window = new format.tools._InflateImpl.Window(crc);
+};
+$hxClasses["format.tools.InflateImpl"] = format.tools.InflateImpl;
+format.tools.InflateImpl.__name__ = ["format","tools","InflateImpl"];
+format.tools.InflateImpl.run = function(i,bufsize) {
+	if(bufsize == null) bufsize = 65536;
+	var buf = haxe.io.Bytes.alloc(bufsize);
+	var output = new haxe.io.BytesBuffer();
+	var inflate = new format.tools.InflateImpl(i);
+	while(true) {
+		var len = inflate.readBytes(buf,0,bufsize);
+		output.addBytes(buf,0,len);
+		if(len < bufsize) break;
+	}
+	return output.getBytes();
+};
+format.tools.InflateImpl.prototype = {
+	buildFixedHuffman: function() {
+		if(format.tools.InflateImpl.FIXED_HUFFMAN != null) return format.tools.InflateImpl.FIXED_HUFFMAN;
+		var a = new Array();
+		var _g = 0;
+		while(_g < 288) {
+			var n = _g++;
+			a.push(n <= 143?8:n <= 255?9:n <= 279?7:8);
+		}
+		format.tools.InflateImpl.FIXED_HUFFMAN = this.htools.make(a,0,288,10);
+		return format.tools.InflateImpl.FIXED_HUFFMAN;
+	}
+	,readBytes: function(b,pos,len) {
+		this.needed = len;
+		this.outpos = pos;
+		this.output = b;
+		if(len > 0) while(this.inflateLoop()) {
+		}
+		return len - this.needed;
+	}
+	,getBits: function(n) {
+		while(this.nbits < n) {
+			this.bits |= this.input.readByte() << this.nbits;
+			this.nbits += 8;
+		}
+		var b = this.bits & (1 << n) - 1;
+		this.nbits -= n;
+		this.bits >>= n;
+		return b;
+	}
+	,getBit: function() {
+		if(this.nbits == 0) {
+			this.nbits = 8;
+			this.bits = this.input.readByte();
+		}
+		var b = (this.bits & 1) == 1;
+		this.nbits--;
+		this.bits >>= 1;
+		return b;
+	}
+	,getRevBits: function(n) {
+		if(n == 0) return 0; else if(this.getBit()) return 1 << n - 1 | this.getRevBits(n - 1); else return this.getRevBits(n - 1);
+	}
+	,resetBits: function() {
+		this.bits = 0;
+		this.nbits = 0;
+	}
+	,addBytes: function(b,p,len) {
+		this.window.addBytes(b,p,len);
+		this.output.blit(this.outpos,b,p,len);
+		this.needed -= len;
+		this.outpos += len;
+	}
+	,addByte: function(b) {
+		this.window.addByte(b);
+		this.output.b[this.outpos] = b & 255;
+		this.needed--;
+		this.outpos++;
+	}
+	,addDistOne: function(n) {
+		var c = this.window.getLastChar();
+		var _g = 0;
+		while(_g < n) {
+			var i = _g++;
+			this.addByte(c);
+		}
+	}
+	,addDist: function(d,len) {
+		this.addBytes(this.window.buffer,this.window.pos - d,len);
+	}
+	,applyHuffman: function(h) {
+		switch(h[1]) {
+		case 0:
+			var n = h[2];
+			return n;
+		case 1:
+			var b = h[3];
+			var a = h[2];
+			return this.applyHuffman(this.getBit()?b:a);
+		case 2:
+			var tbl = h[3];
+			var n1 = h[2];
+			return this.applyHuffman(tbl[this.getBits(n1)]);
+		}
+	}
+	,inflateLengths: function(a,max) {
+		var i = 0;
+		var prev = 0;
+		while(i < max) {
+			var n = this.applyHuffman(this.huffman);
+			switch(n) {
+			case 0:case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 14:case 15:
+				prev = n;
+				a[i] = n;
+				i++;
+				break;
+			case 16:
+				var end = i + 3 + this.getBits(2);
+				if(end > max) throw "Invalid data";
+				while(i < end) {
+					a[i] = prev;
+					i++;
+				}
+				break;
+			case 17:
+				i += 3 + this.getBits(3);
+				if(i > max) throw "Invalid data";
+				break;
+			case 18:
+				i += 11 + this.getBits(7);
+				if(i > max) throw "Invalid data";
+				break;
+			default:
+				throw "Invalid data";
+			}
+		}
+	}
+	,inflateLoop: function() {
+		var _g = this.state;
+		switch(_g[1]) {
+		case 0:
+			var cmf = this.input.readByte();
+			var cm = cmf & 15;
+			var cinfo = cmf >> 4;
+			if(cm != 8) throw "Invalid data";
+			var flg = this.input.readByte();
+			var fdict = (flg & 32) != 0;
+			if(((cmf << 8) + flg) % 31 != 0) throw "Invalid data";
+			if(fdict) throw "Unsupported dictionary";
+			this.state = format.tools._InflateImpl.State.Block;
+			return true;
+		case 4:
+			var calc = this.window.checksum();
+			if(calc == null) {
+				this.state = format.tools._InflateImpl.State.Done;
+				return true;
+			}
+			var crc = format.tools.Adler32.read(this.input);
+			if(!calc.equals(crc)) throw "Invalid CRC";
+			this.state = format.tools._InflateImpl.State.Done;
+			return true;
+		case 7:
+			return false;
+		case 1:
+			this["final"] = this.getBit();
+			var _g1 = this.getBits(2);
+			switch(_g1) {
+			case 0:
+				this.len = this.input.readUInt16();
+				var nlen = this.input.readUInt16();
+				if(nlen != 65535 - this.len) throw "Invalid data";
+				this.state = format.tools._InflateImpl.State.Flat;
+				var r = this.inflateLoop();
+				this.resetBits();
+				return r;
+			case 1:
+				this.huffman = this.buildFixedHuffman();
+				this.huffdist = null;
+				this.state = format.tools._InflateImpl.State.CData;
+				return true;
+			case 2:
+				var hlit = this.getBits(5) + 257;
+				var hdist = this.getBits(5) + 1;
+				var hclen = this.getBits(4) + 4;
+				var _g2 = 0;
+				while(_g2 < hclen) {
+					var i = _g2++;
+					this.lengths[format.tools.InflateImpl.CODE_LENGTHS_POS[i]] = this.getBits(3);
+				}
+				var _g21 = hclen;
+				while(_g21 < 19) {
+					var i1 = _g21++;
+					this.lengths[format.tools.InflateImpl.CODE_LENGTHS_POS[i1]] = 0;
+				}
+				this.huffman = this.htools.make(this.lengths,0,19,8);
+				var lengths = new Array();
+				var _g3 = 0;
+				var _g22 = hlit + hdist;
+				while(_g3 < _g22) {
+					var i2 = _g3++;
+					lengths.push(0);
+				}
+				this.inflateLengths(lengths,hlit + hdist);
+				this.huffdist = this.htools.make(lengths,hlit,hdist,16);
+				this.huffman = this.htools.make(lengths,0,hlit,16);
+				this.state = format.tools._InflateImpl.State.CData;
+				return true;
+			default:
+				throw "Invalid data";
+			}
+			break;
+		case 3:
+			var rlen;
+			if(this.len < this.needed) rlen = this.len; else rlen = this.needed;
+			var bytes = this.input.read(rlen);
+			this.len -= rlen;
+			this.addBytes(bytes,0,rlen);
+			if(this.len == 0) if(this["final"]) this.state = format.tools._InflateImpl.State.Crc; else this.state = format.tools._InflateImpl.State.Block;
+			return this.needed > 0;
+		case 6:
+			var rlen1;
+			if(this.len < this.needed) rlen1 = this.len; else rlen1 = this.needed;
+			this.addDistOne(rlen1);
+			this.len -= rlen1;
+			if(this.len == 0) this.state = format.tools._InflateImpl.State.CData;
+			return this.needed > 0;
+		case 5:
+			while(this.len > 0 && this.needed > 0) {
+				var rdist;
+				if(this.len < this.dist) rdist = this.len; else rdist = this.dist;
+				var rlen2;
+				if(this.needed < rdist) rlen2 = this.needed; else rlen2 = rdist;
+				this.addDist(this.dist,rlen2);
+				this.len -= rlen2;
+			}
+			if(this.len == 0) this.state = format.tools._InflateImpl.State.CData;
+			return this.needed > 0;
+		case 2:
+			var n = this.applyHuffman(this.huffman);
+			if(n < 256) {
+				this.addByte(n);
+				return this.needed > 0;
+			} else if(n == 256) {
+				if(this["final"]) this.state = format.tools._InflateImpl.State.Crc; else this.state = format.tools._InflateImpl.State.Block;
+				return true;
+			} else {
+				n -= 257;
+				var extra_bits = format.tools.InflateImpl.LEN_EXTRA_BITS_TBL[n];
+				if(extra_bits == -1) throw "Invalid data";
+				this.len = format.tools.InflateImpl.LEN_BASE_VAL_TBL[n] + this.getBits(extra_bits);
+				var dist_code;
+				if(this.huffdist == null) dist_code = this.getRevBits(5); else dist_code = this.applyHuffman(this.huffdist);
+				extra_bits = format.tools.InflateImpl.DIST_EXTRA_BITS_TBL[dist_code];
+				if(extra_bits == -1) throw "Invalid data";
+				this.dist = format.tools.InflateImpl.DIST_BASE_VAL_TBL[dist_code] + this.getBits(extra_bits);
+				if(this.dist > this.window.available()) throw "Invalid data";
+				if(this.dist == 1) this.state = format.tools._InflateImpl.State.DistOne; else this.state = format.tools._InflateImpl.State.Dist;
+				return true;
+			}
+			break;
+		}
+	}
+	,__class__: format.tools.InflateImpl
 };
 var h2d = {};
 h2d.Sprite = function(parent) {
@@ -492,6 +1837,9 @@ h2d.Sprite.prototype = {
 			if(s.allocated) s.onDelete();
 			s.parent = null;
 		}
+	}
+	,remove: function() {
+		if(this.parent != null) this.parent.removeChild(this);
 	}
 	,draw: function(ctx) {
 	}
@@ -768,7 +2116,16 @@ h2d.Sprite.prototype = {
 			}
 		}
 	}
+	,set_x: function(v) {
+		this.posChanged = true;
+		return this.x = v;
+	}
+	,set_y: function(v) {
+		this.posChanged = true;
+		return this.y = v;
+	}
 	,__class__: h2d.Sprite
+	,__properties__: {set_y:"set_y",set_x:"set_x"}
 };
 h2d.Drawable = function(parent) {
 	h2d.Sprite.call(this,parent);
@@ -860,6 +2217,23 @@ h2d.Drawable.prototype = $extend(h2d.Sprite.prototype,{
 		ctx.bufPos = pos;
 	}
 	,__class__: h2d.Drawable
+});
+h2d.Bitmap = function(tile,parent) {
+	h2d.Drawable.call(this,parent);
+	this.tile = tile;
+};
+$hxClasses["h2d.Bitmap"] = h2d.Bitmap;
+h2d.Bitmap.__name__ = ["h2d","Bitmap"];
+h2d.Bitmap.__super__ = h2d.Drawable;
+h2d.Bitmap.prototype = $extend(h2d.Drawable.prototype,{
+	getBoundsRec: function(relativeTo,out) {
+		h2d.Drawable.prototype.getBoundsRec.call(this,relativeTo,out);
+		if(this.tile != null) this.addBounds(relativeTo,out,this.tile.dx,this.tile.dy,this.tile.width,this.tile.height);
+	}
+	,draw: function(ctx) {
+		this.emitTile(ctx,this.tile);
+	}
+	,__class__: h2d.Bitmap
 });
 h2d.BlendMode = $hxClasses["h2d.BlendMode"] = { __ename__ : true, __constructs__ : ["None","Alpha","Add","SoftAdd","Multiply","Erase","Screen"] };
 h2d.BlendMode.None = ["None",0];
@@ -1162,7 +2536,13 @@ h2d.Scene.__name__ = ["h2d","Scene"];
 h2d.Scene.__interfaces__ = [h3d.IDrawable];
 h2d.Scene.__super__ = h2d.Layers;
 h2d.Scene.prototype = $extend(h2d.Layers.prototype,{
-	checkResize: function() {
+	setFixedSize: function(w,h) {
+		this.width = w;
+		this.height = h;
+		this.fixedSize = true;
+		this.posChanged = true;
+	}
+	,checkResize: function() {
 		if(this.fixedSize) return;
 		var engine;
 		if(h3d.Engine.CURRENT == null) throw "no current context, please do this operation after engine init/creation";
@@ -1333,6 +2713,18 @@ h2d.Tile.prototype = {
 			this.v2 = (this.y + this.height) / tex.height;
 		}
 	}
+	,sub: function(x,y,w,h,dx,dy) {
+		if(dy == null) dy = 0;
+		if(dx == null) dx = 0;
+		return new h2d.Tile(this.innerTex,this.x + x,this.y + y,w,h,dx,dy);
+	}
+	,center: function() {
+		return this.sub(0,0,this.width,this.height,-(this.width >> 1),-(this.height >> 1));
+	}
+	,dispose: function() {
+		if(this.innerTex != null) this.innerTex.dispose();
+		this.innerTex = null;
+	}
 	,__class__: h2d.Tile
 };
 h2d.col = {};
@@ -1362,7 +2754,13 @@ h2d.col.Point = function(x,y) {
 $hxClasses["h2d.col.Point"] = h2d.col.Point;
 h2d.col.Point.__name__ = ["h2d","col","Point"];
 h2d.col.Point.prototype = {
-	__class__: h2d.col.Point
+	normalize: function() {
+		var k = this.x * this.x + this.y * this.y;
+		if(k < 1e-10) k = 0; else k = 1. / Math.sqrt(k);
+		this.x *= k;
+		this.y *= k;
+	}
+	,__class__: h2d.col.Point
 };
 h2d.filter = {};
 h2d.filter.Filter = function() {
@@ -1752,6 +3150,10 @@ h3d.Engine.prototype = {
 		}
 		return true;
 	}
+	,dispose: function() {
+		this.driver.dispose();
+		hxd.Stage.getInstance().removeResizeEvent($bind(this,this.onStageResize));
+	}
 	,__class__: h3d.Engine
 	,__properties__: {set_fullScreen:"set_fullScreen",set_debug:"set_debug"}
 };
@@ -2041,7 +3443,21 @@ h3d.Quat = function(x,y,z,w) {
 $hxClasses["h3d.Quat"] = h3d.Quat;
 h3d.Quat.__name__ = ["h3d","Quat"];
 h3d.Quat.prototype = {
-	saveToMatrix: function(m) {
+	initRotate: function(ax,ay,az) {
+		var sinX = Math.sin(ax * 0.5);
+		var cosX = Math.cos(ax * 0.5);
+		var sinY = Math.sin(ay * 0.5);
+		var cosY = Math.cos(ay * 0.5);
+		var sinZ = Math.sin(az * 0.5);
+		var cosZ = Math.cos(az * 0.5);
+		var cosYZ = cosY * cosZ;
+		var sinYZ = sinY * sinZ;
+		this.x = sinX * cosYZ - cosX * sinYZ;
+		this.y = cosX * sinY * cosZ + sinX * cosY * sinZ;
+		this.z = cosX * cosY * sinZ - sinX * sinY * cosZ;
+		this.w = cosX * cosYZ + sinX * sinYZ;
+	}
+	,saveToMatrix: function(m) {
 		var xx = this.x * this.x;
 		var xy = this.x * this.y;
 		var xz = this.x * this.z;
@@ -2328,6 +3744,8 @@ h3d.impl.Driver.prototype = {
 	,isDisposed: function() {
 		return true;
 	}
+	,dispose: function() {
+	}
 	,begin: function(frame) {
 	}
 	,log: function(str) {
@@ -2379,6 +3797,8 @@ h3d.impl.Driver.prototype = {
 	,uploadIndexBuffer: function(i,startIndice,indiceCount,buf,bufPos) {
 	}
 	,uploadVertexBuffer: function(v,startVertex,vertexCount,buf,bufPos) {
+	}
+	,uploadTextureBitmap: function(t,bmp,mipLevel,side) {
 	}
 	,uploadTexturePixels: function(t,pixels,mipLevel,side) {
 	}
@@ -2704,6 +4124,13 @@ h3d.impl.GlDriver.prototype = $extend(h3d.impl.Driver.prototype,{
 	}
 	,disposeVertexes: function(v) {
 		this.gl.deleteBuffer(v.b);
+	}
+	,uploadTextureBitmap: function(t,bmp,mipLevel,side) {
+		var img = bmp;
+		this.gl.bindTexture(3553,t.t.t);
+		this.gl.texImage2D(3553,mipLevel,6408,6408,5121,img.getImageData(0,0,bmp.canvas.width,bmp.canvas.height));
+		if((t.flags & 1 << h3d.mat.TextureFlags.MipMapped[1]) != 0) this.gl.generateMipmap(3553);
+		this.gl.bindTexture(3553,null);
 	}
 	,uploadTexturePixels: function(t,pixels,mipLevel,side) {
 		this.gl.bindTexture(3553,t.t.t);
@@ -3685,6 +5112,17 @@ h3d.mat.Texture.prototype = {
 		this.bits = this.bits & -193 | w[1] << 6;
 		return this.wrap = w;
 	}
+	,resize: function(width,height) {
+		this.dispose();
+		var tw = 1;
+		var th = 1;
+		while(tw < width) tw <<= 1;
+		while(th < height) th <<= 1;
+		if(tw != width || th != height) this.flags |= 1 << h3d.mat.TextureFlags.IsNPOT[1]; else this.flags &= 268435455 - (1 << h3d.mat.TextureFlags.IsNPOT[1]);
+		this.width = width;
+		this.height = height;
+		if(!((this.flags & 1 << h3d.mat.TextureFlags.NoAlloc[1]) != 0)) this.alloc();
+	}
 	,clear: function(color,alpha) {
 		if(alpha == null) alpha = 1.;
 		this.alloc();
@@ -3706,6 +5144,12 @@ h3d.mat.Texture.prototype = {
 		}
 		this.uploadPixels(p);
 		p.dispose();
+	}
+	,uploadBitmap: function(bmp,mipLevel,side) {
+		if(side == null) side = 0;
+		if(mipLevel == null) mipLevel = 0;
+		this.alloc();
+		this.mem.driver.uploadTextureBitmap(this,bmp,mipLevel,side);
 	}
 	,uploadPixels: function(pixels,mipLevel,side) {
 		if(side == null) side = 0;
@@ -4632,6 +6076,9 @@ h3d.scene.Object.prototype = {
 	,removeChild: function(o) {
 		if(HxOverrides.remove(this.childs,o)) o.parent = null;
 	}
+	,remove: function() {
+		if(this.parent != null) this.parent.removeChild(this);
+	}
 	,draw: function(ctx) {
 	}
 	,calcAbsPos: function() {
@@ -4750,6 +6197,12 @@ h3d.scene.Object.prototype = {
 		true;
 		return v;
 	}
+	,set_z: function(v) {
+		this.z = v;
+		this.flags |= 1;
+		true;
+		return v;
+	}
 	,set_scaleX: function(v) {
 		this.scaleX = v;
 		this.flags |= 1;
@@ -4784,6 +6237,11 @@ h3d.scene.Object.prototype = {
 		this.flags |= 1;
 		true;
 	}
+	,setRotate: function(rx,ry,rz) {
+		this.qRot.initRotate(rx,ry,rz);
+		this.flags |= 1;
+		true;
+	}
 	,scale: function(v) {
 		var _g = this;
 		_g.set_scaleX(_g.scaleX * v);
@@ -4798,7 +6256,7 @@ h3d.scene.Object.prototype = {
 		return Type.getClassName(Type.getClass(this)).split(".").pop() + (this.name == null?"":"(" + this.name + ")");
 	}
 	,__class__: h3d.scene.Object
-	,__properties__: {set_visible:"set_visible",set_culled:"set_culled",set_posChanged:"set_posChanged",set_scaleZ:"set_scaleZ",set_scaleY:"set_scaleY",set_scaleX:"set_scaleX",set_y:"set_y",set_x:"set_x"}
+	,__properties__: {set_visible:"set_visible",set_culled:"set_culled",set_posChanged:"set_posChanged",set_scaleZ:"set_scaleZ",set_scaleY:"set_scaleY",set_scaleX:"set_scaleX",set_z:"set_z",set_y:"set_y",set_x:"set_x"}
 };
 h3d.scene.Light = function() {
 	this.priority = 0;
@@ -5832,7 +7290,64 @@ h3d.shader.Texture.prototype = $extend(hxsl.Shader.prototype,{
 	}
 	,__class__: h3d.shader.Texture
 });
+h3d.shader.UVScroll = function() {
+	this.uvDelta__ = new h3d.Vector();
+};
+$hxClasses["h3d.shader.UVScroll"] = h3d.shader.UVScroll;
+h3d.shader.UVScroll.__name__ = ["h3d","shader","UVScroll"];
+h3d.shader.UVScroll.__super__ = hxsl.Shader;
+h3d.shader.UVScroll.prototype = $extend(hxsl.Shader.prototype,{
+	updateConstants: function(globals) {
+		this.constBits = 0;
+		this.updateConstantsFinal(globals);
+	}
+	,getParamValue: function(index) {
+		switch(index) {
+		case 0:
+			return this.uvDelta__;
+		default:
+		}
+		return null;
+	}
+	,__class__: h3d.shader.UVScroll
+});
+h3d.shader.VertexColor = function() { };
+$hxClasses["h3d.shader.VertexColor"] = h3d.shader.VertexColor;
+h3d.shader.VertexColor.__name__ = ["h3d","shader","VertexColor"];
+h3d.shader.VertexColor.__super__ = hxsl.Shader;
+h3d.shader.VertexColor.prototype = $extend(hxsl.Shader.prototype,{
+	updateConstants: function(globals) {
+		this.constBits = 0;
+		if(this.additive__) this.constBits |= 1;
+		this.updateConstantsFinal(globals);
+	}
+	,getParamValue: function(index) {
+		switch(index) {
+		case 0:
+			return this.additive__;
+		default:
+		}
+		return null;
+	}
+	,__class__: h3d.shader.VertexColor
+});
 var haxe = {};
+haxe.Resource = function() { };
+$hxClasses["haxe.Resource"] = haxe.Resource;
+haxe.Resource.__name__ = ["haxe","Resource"];
+haxe.Resource.getBytes = function(name) {
+	var _g = 0;
+	var _g1 = haxe.Resource.content;
+	while(_g < _g1.length) {
+		var x = _g1[_g];
+		++_g;
+		if(x.name == name) {
+			if(x.str != null) return haxe.io.Bytes.ofString(x.str);
+			return haxe.crypto.Base64.decode(x.data);
+		}
+	}
+	return null;
+};
 haxe.Timer = function(time_ms) {
 	var me = this;
 	this.id = setInterval(function() {
@@ -5841,6 +7356,14 @@ haxe.Timer = function(time_ms) {
 };
 $hxClasses["haxe.Timer"] = haxe.Timer;
 haxe.Timer.__name__ = ["haxe","Timer"];
+haxe.Timer.delay = function(f,time_ms) {
+	var t = new haxe.Timer(time_ms);
+	t.run = function() {
+		t.stop();
+		f();
+	};
+	return t;
+};
 haxe.Timer.stamp = function() {
 	return new Date().getTime() / 1000;
 };
@@ -6124,7 +7647,205 @@ haxe.Unserializer.prototype = {
 	}
 	,__class__: haxe.Unserializer
 };
+haxe.io = {};
+haxe.io.Bytes = function(length,b) {
+	this.length = length;
+	this.b = b;
+};
+$hxClasses["haxe.io.Bytes"] = haxe.io.Bytes;
+haxe.io.Bytes.__name__ = ["haxe","io","Bytes"];
+haxe.io.Bytes.alloc = function(length) {
+	var a = new Array();
+	var _g = 0;
+	while(_g < length) {
+		var i = _g++;
+		a.push(0);
+	}
+	return new haxe.io.Bytes(length,a);
+};
+haxe.io.Bytes.ofString = function(s) {
+	var a = new Array();
+	var i = 0;
+	while(i < s.length) {
+		var c = StringTools.fastCodeAt(s,i++);
+		if(55296 <= c && c <= 56319) c = c - 55232 << 10 | StringTools.fastCodeAt(s,i++) & 1023;
+		if(c <= 127) a.push(c); else if(c <= 2047) {
+			a.push(192 | c >> 6);
+			a.push(128 | c & 63);
+		} else if(c <= 65535) {
+			a.push(224 | c >> 12);
+			a.push(128 | c >> 6 & 63);
+			a.push(128 | c & 63);
+		} else {
+			a.push(240 | c >> 18);
+			a.push(128 | c >> 12 & 63);
+			a.push(128 | c >> 6 & 63);
+			a.push(128 | c & 63);
+		}
+	}
+	return new haxe.io.Bytes(a.length,a);
+};
+haxe.io.Bytes.ofData = function(b) {
+	return new haxe.io.Bytes(b.length,b);
+};
+haxe.io.Bytes.prototype = {
+	get: function(pos) {
+		return this.b[pos];
+	}
+	,set: function(pos,v) {
+		this.b[pos] = v & 255;
+	}
+	,blit: function(pos,src,srcpos,len) {
+		if(pos < 0 || srcpos < 0 || len < 0 || pos + len > this.length || srcpos + len > src.length) throw haxe.io.Error.OutsideBounds;
+		var b1 = this.b;
+		var b2 = src.b;
+		if(b1 == b2 && pos > srcpos) {
+			var i = len;
+			while(i > 0) {
+				i--;
+				b1[i + pos] = b2[i + srcpos];
+			}
+			return;
+		}
+		var _g = 0;
+		while(_g < len) {
+			var i1 = _g++;
+			b1[i1 + pos] = b2[i1 + srcpos];
+		}
+	}
+	,fill: function(pos,len,value) {
+		var _g = 0;
+		while(_g < len) {
+			var i = _g++;
+			this.set(pos++,value);
+		}
+	}
+	,getString: function(pos,len) {
+		if(pos < 0 || len < 0 || pos + len > this.length) throw haxe.io.Error.OutsideBounds;
+		var s = "";
+		var b = this.b;
+		var fcc = String.fromCharCode;
+		var i = pos;
+		var max = pos + len;
+		while(i < max) {
+			var c = b[i++];
+			if(c < 128) {
+				if(c == 0) break;
+				s += fcc(c);
+			} else if(c < 224) s += fcc((c & 63) << 6 | b[i++] & 127); else if(c < 240) {
+				var c2 = b[i++];
+				s += fcc((c & 31) << 12 | (c2 & 127) << 6 | b[i++] & 127);
+			} else {
+				var c21 = b[i++];
+				var c3 = b[i++];
+				var u = (c & 15) << 18 | (c21 & 127) << 12 | (c3 & 127) << 6 | b[i++] & 127;
+				s += fcc((u >> 10) + 55232);
+				s += fcc(u & 1023 | 56320);
+			}
+		}
+		return s;
+	}
+	,toString: function() {
+		return this.getString(0,this.length);
+	}
+	,__class__: haxe.io.Bytes
+};
 haxe.crypto = {};
+haxe.crypto.Base64 = function() { };
+$hxClasses["haxe.crypto.Base64"] = haxe.crypto.Base64;
+haxe.crypto.Base64.__name__ = ["haxe","crypto","Base64"];
+haxe.crypto.Base64.decode = function(str,complement) {
+	if(complement == null) complement = true;
+	if(complement) while(HxOverrides.cca(str,str.length - 1) == 61) str = HxOverrides.substr(str,0,-1);
+	return new haxe.crypto.BaseCode(haxe.crypto.Base64.BYTES).decodeBytes(haxe.io.Bytes.ofString(str));
+};
+haxe.crypto.BaseCode = function(base) {
+	var len = base.length;
+	var nbits = 1;
+	while(len > 1 << nbits) nbits++;
+	if(nbits > 8 || len != 1 << nbits) throw "BaseCode : base length must be a power of two.";
+	this.base = base;
+	this.nbits = nbits;
+};
+$hxClasses["haxe.crypto.BaseCode"] = haxe.crypto.BaseCode;
+haxe.crypto.BaseCode.__name__ = ["haxe","crypto","BaseCode"];
+haxe.crypto.BaseCode.prototype = {
+	initTable: function() {
+		var tbl = new Array();
+		var _g = 0;
+		while(_g < 256) {
+			var i = _g++;
+			tbl[i] = -1;
+		}
+		var _g1 = 0;
+		var _g2 = this.base.length;
+		while(_g1 < _g2) {
+			var i1 = _g1++;
+			tbl[this.base.b[i1]] = i1;
+		}
+		this.tbl = tbl;
+	}
+	,decodeBytes: function(b) {
+		var nbits = this.nbits;
+		var base = this.base;
+		if(this.tbl == null) this.initTable();
+		var tbl = this.tbl;
+		var size = b.length * nbits >> 3;
+		var out = haxe.io.Bytes.alloc(size);
+		var buf = 0;
+		var curbits = 0;
+		var pin = 0;
+		var pout = 0;
+		while(pout < size) {
+			while(curbits < 8) {
+				curbits += nbits;
+				buf <<= nbits;
+				var i = tbl[b.get(pin++)];
+				if(i == -1) throw "BaseCode : invalid encoded char";
+				buf |= i;
+			}
+			curbits -= 8;
+			out.set(pout++,buf >> curbits & 255);
+		}
+		return out;
+	}
+	,__class__: haxe.crypto.BaseCode
+};
+haxe.crypto.Crc32 = function() {
+	this.crc = -1;
+};
+$hxClasses["haxe.crypto.Crc32"] = haxe.crypto.Crc32;
+haxe.crypto.Crc32.__name__ = ["haxe","crypto","Crc32"];
+haxe.crypto.Crc32.prototype = {
+	'byte': function(b) {
+		var tmp = (this.crc ^ b) & 255;
+		var _g = 0;
+		while(_g < 8) {
+			var j = _g++;
+			if((tmp & 1) == 1) tmp = tmp >>> 1 ^ -306674912; else tmp >>>= 1;
+		}
+		this.crc = this.crc >>> 8 ^ tmp;
+	}
+	,update: function(b,pos,len) {
+		var b1 = b.b;
+		var _g1 = pos;
+		var _g = pos + len;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var tmp = (this.crc ^ b1[i]) & 255;
+			var _g2 = 0;
+			while(_g2 < 8) {
+				var j = _g2++;
+				if((tmp & 1) == 1) tmp = tmp >>> 1 ^ -306674912; else tmp >>>= 1;
+			}
+			this.crc = this.crc >>> 8 ^ tmp;
+		}
+	}
+	,get: function() {
+		return this.crc ^ -1;
+	}
+	,__class__: haxe.crypto.Crc32
+};
 haxe.crypto.Md5 = function() {
 };
 $hxClasses["haxe.crypto.Md5"] = haxe.crypto.Md5;
@@ -6701,47 +8422,137 @@ haxe.ds.StringMap.prototype = {
 	}
 	,__class__: haxe.ds.StringMap
 };
-haxe.io = {};
-haxe.io.Bytes = function(length,b) {
-	this.length = length;
-	this.b = b;
+haxe.io.BytesBuffer = function() {
+	this.b = new Array();
 };
-$hxClasses["haxe.io.Bytes"] = haxe.io.Bytes;
-haxe.io.Bytes.__name__ = ["haxe","io","Bytes"];
-haxe.io.Bytes.alloc = function(length) {
-	var a = new Array();
-	var _g = 0;
-	while(_g < length) {
-		var i = _g++;
-		a.push(0);
-	}
-	return new haxe.io.Bytes(length,a);
-};
-haxe.io.Bytes.prototype = {
-	set: function(pos,v) {
-		this.b[pos] = v & 255;
-	}
-	,blit: function(pos,src,srcpos,len) {
-		if(pos < 0 || srcpos < 0 || len < 0 || pos + len > this.length || srcpos + len > src.length) throw haxe.io.Error.OutsideBounds;
+$hxClasses["haxe.io.BytesBuffer"] = haxe.io.BytesBuffer;
+haxe.io.BytesBuffer.__name__ = ["haxe","io","BytesBuffer"];
+haxe.io.BytesBuffer.prototype = {
+	add: function(src) {
 		var b1 = this.b;
 		var b2 = src.b;
-		if(b1 == b2 && pos > srcpos) {
-			var i = len;
-			while(i > 0) {
-				i--;
-				b1[i + pos] = b2[i + srcpos];
-			}
-			return;
-		}
-		var _g = 0;
-		while(_g < len) {
-			var i1 = _g++;
-			b1[i1 + pos] = b2[i1 + srcpos];
+		var _g1 = 0;
+		var _g = src.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.b.push(b2[i]);
 		}
 	}
-	,__class__: haxe.io.Bytes
+	,addBytes: function(src,pos,len) {
+		if(pos < 0 || len < 0 || pos + len > src.length) throw haxe.io.Error.OutsideBounds;
+		var b1 = this.b;
+		var b2 = src.b;
+		var _g1 = pos;
+		var _g = pos + len;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.b.push(b2[i]);
+		}
+	}
+	,getBytes: function() {
+		var bytes = new haxe.io.Bytes(this.b.length,this.b);
+		this.b = null;
+		return bytes;
+	}
+	,__class__: haxe.io.BytesBuffer
 };
-haxe.io.Eof = function() { };
+haxe.io.Input = function() { };
+$hxClasses["haxe.io.Input"] = haxe.io.Input;
+haxe.io.Input.__name__ = ["haxe","io","Input"];
+haxe.io.Input.prototype = {
+	readByte: function() {
+		throw "Not implemented";
+	}
+	,readBytes: function(s,pos,len) {
+		var k = len;
+		var b = s.b;
+		if(pos < 0 || len < 0 || pos + len > s.length) throw haxe.io.Error.OutsideBounds;
+		while(k > 0) {
+			b[pos] = this.readByte();
+			pos++;
+			k--;
+		}
+		return len;
+	}
+	,set_bigEndian: function(b) {
+		this.bigEndian = b;
+		return b;
+	}
+	,readFullBytes: function(s,pos,len) {
+		while(len > 0) {
+			var k = this.readBytes(s,pos,len);
+			pos += k;
+			len -= k;
+		}
+	}
+	,read: function(nbytes) {
+		var s = haxe.io.Bytes.alloc(nbytes);
+		var p = 0;
+		while(nbytes > 0) {
+			var k = this.readBytes(s,p,nbytes);
+			if(k == 0) throw haxe.io.Error.Blocked;
+			p += k;
+			nbytes -= k;
+		}
+		return s;
+	}
+	,readUInt16: function() {
+		var ch1 = this.readByte();
+		var ch2 = this.readByte();
+		if(this.bigEndian) return ch2 | ch1 << 8; else return ch1 | ch2 << 8;
+	}
+	,readInt32: function() {
+		var ch1 = this.readByte();
+		var ch2 = this.readByte();
+		var ch3 = this.readByte();
+		var ch4 = this.readByte();
+		if(this.bigEndian) return ch4 | ch3 << 8 | ch2 << 16 | ch1 << 24; else return ch1 | ch2 << 8 | ch3 << 16 | ch4 << 24;
+	}
+	,readString: function(len) {
+		var b = haxe.io.Bytes.alloc(len);
+		this.readFullBytes(b,0,len);
+		return b.toString();
+	}
+	,__class__: haxe.io.Input
+	,__properties__: {set_bigEndian:"set_bigEndian"}
+};
+haxe.io.BytesInput = function(b,pos,len) {
+	if(pos == null) pos = 0;
+	if(len == null) len = b.length - pos;
+	if(pos < 0 || len < 0 || pos + len > b.length) throw haxe.io.Error.OutsideBounds;
+	this.b = b.b;
+	this.pos = pos;
+	this.len = len;
+	this.totlen = len;
+};
+$hxClasses["haxe.io.BytesInput"] = haxe.io.BytesInput;
+haxe.io.BytesInput.__name__ = ["haxe","io","BytesInput"];
+haxe.io.BytesInput.__super__ = haxe.io.Input;
+haxe.io.BytesInput.prototype = $extend(haxe.io.Input.prototype,{
+	readByte: function() {
+		if(this.len == 0) throw new haxe.io.Eof();
+		this.len--;
+		return this.b[this.pos++];
+	}
+	,readBytes: function(buf,pos,len) {
+		if(pos < 0 || len < 0 || pos + len > buf.length) throw haxe.io.Error.OutsideBounds;
+		if(this.len == 0 && len > 0) throw new haxe.io.Eof();
+		if(this.len < len) len = this.len;
+		var b1 = this.b;
+		var b2 = buf.b;
+		var _g = 0;
+		while(_g < len) {
+			var i = _g++;
+			b2[pos + i] = b1[this.pos + i];
+		}
+		this.pos += len;
+		this.len -= len;
+		return len;
+	}
+	,__class__: haxe.io.BytesInput
+});
+haxe.io.Eof = function() {
+};
 $hxClasses["haxe.io.Eof"] = haxe.io.Eof;
 haxe.io.Eof.__name__ = ["haxe","io","Eof"];
 haxe.io.Eof.prototype = {
@@ -6850,6 +8661,23 @@ haxe.macro.Unop.OpNegBits.toString = $estr;
 haxe.macro.Unop.OpNegBits.__enum__ = haxe.macro.Unop;
 haxe.macro.Unop.__empty_constructs__ = [haxe.macro.Unop.OpIncrement,haxe.macro.Unop.OpDecrement,haxe.macro.Unop.OpNot,haxe.macro.Unop.OpNeg,haxe.macro.Unop.OpNegBits];
 var hxd = {};
+hxd._BitmapData = {};
+hxd._BitmapData.BitmapData_Impl_ = function() { };
+$hxClasses["hxd._BitmapData.BitmapData_Impl_"] = hxd._BitmapData.BitmapData_Impl_;
+hxd._BitmapData.BitmapData_Impl_.__name__ = ["hxd","_BitmapData","BitmapData_Impl_"];
+hxd._BitmapData.BitmapData_Impl_.nativeGetPixels = function(b) {
+	var w = b.canvas.width;
+	var h = b.canvas.height;
+	var data = b.getImageData(0,0,w,h).data;
+	var pixels = [];
+	var _g1 = 0;
+	var _g = w * h * 4;
+	while(_g1 < _g) {
+		var i = _g1++;
+		pixels.push(data[i]);
+	}
+	return new hxd.Pixels(b.canvas.width,b.canvas.height,haxe.io.Bytes.ofData(pixels),hxd.PixelFormat.RGBA);
+};
 hxd.EventKind = $hxClasses["hxd.EventKind"] = { __ename__ : true, __constructs__ : ["EPush","ERelease","EMove","EOver","EOut","EWheel","EFocus","EFocusLost","EKeyDown","EKeyUp"] };
 hxd.EventKind.EPush = ["EPush",0];
 hxd.EventKind.EPush.toString = $estr;
@@ -6900,6 +8728,14 @@ $hxClasses["hxd.Key"] = hxd.Key;
 hxd.Key.__name__ = ["hxd","Key"];
 hxd.Key.isDown = function(code) {
 	return hxd.Key.keyPressed[code] > 0;
+};
+hxd.Key.isReleased = function(code) {
+	return hxd.Key.keyPressed[code] == -(((function($this) {
+		var $r;
+		if(h3d.Engine.CURRENT == null) throw "no current context, please do this operation after engine init/creation";
+		$r = h3d.Engine.CURRENT;
+		return $r;
+	}(this))).frameCount + 1);
 };
 hxd.Key.initialize = function() {
 	if(hxd.Key.initDone) hxd.Key.dispose();
@@ -6998,7 +8834,46 @@ hxd.Pixels.alloc = function(width,height,format) {
 	return new hxd.Pixels(width,height,hxd.impl.Tmp.getBytes(width * height * hxd.Pixels.bytesPerPixel(format)),format);
 };
 hxd.Pixels.prototype = {
-	copyInner: function() {
+	makeSquare: function(copy) {
+		var w = this.width;
+		var h = this.height;
+		var tw;
+		if(w == 0) tw = 0; else tw = 1;
+		var th;
+		if(h == 0) th = 0; else th = 1;
+		while(tw < w) tw <<= 1;
+		while(th < h) th <<= 1;
+		if(w == tw && h == th) return this;
+		var out = hxd.impl.Tmp.getBytes(tw * th * 4);
+		var p = 0;
+		var b = this.offset;
+		var _g = 0;
+		while(_g < h) {
+			var y = _g++;
+			out.blit(p,this.bytes,b,w * 4);
+			p += w * 4;
+			b += w * 4;
+			var _g2 = 0;
+			var _g1 = (tw - w) * 4;
+			while(_g2 < _g1) {
+				var i = _g2++;
+				out.set(p++,0);
+			}
+		}
+		var _g11 = 0;
+		var _g3 = (th - h) * tw * 4;
+		while(_g11 < _g3) {
+			var i1 = _g11++;
+			out.set(p++,0);
+		}
+		if(copy) return new hxd.Pixels(tw,th,out,this.format);
+		if(!((this.flags & 1 << hxd.Flags.ReadOnly[1]) != 0)) hxd.impl.Tmp.saveBytes(this.bytes);
+		this.bytes = out;
+		this.width = tw;
+		this.height = th;
+		return this;
+	}
+	,copyInner: function() {
 		var old = this.bytes;
 		this.bytes = hxd.impl.Tmp.getBytes(this.width * this.height * 4);
 		this.bytes.blit(0,old,this.offset,this.width * this.height * 4);
@@ -7102,6 +8977,9 @@ hxd.Pixels.prototype = {
 	}
 	,__class__: hxd.Pixels
 };
+hxd.Res = function() { };
+$hxClasses["hxd.Res"] = hxd.Res;
+hxd.Res.__name__ = ["hxd","Res"];
 hxd.Stage = function() {
 	this.curMouseY = 0.;
 	this.curMouseX = 0.;
@@ -7162,6 +9040,9 @@ hxd.Stage.prototype = {
 	}
 	,addResizeEvent: function(f) {
 		this.resizeEvents.push(f);
+	}
+	,removeResizeEvent: function(f) {
+		this.resizeEvents.remove(f);
 	}
 	,getFrameRate: function() {
 		return 60.;
@@ -7328,6 +9209,1251 @@ hxd.impl.Tmp.saveBytes = function(b) {
 		}
 	}
 	hxd.impl.Tmp.bytes.push(b);
+};
+hxd.res = {};
+hxd.res.FileSystem = function() { };
+$hxClasses["hxd.res.FileSystem"] = hxd.res.FileSystem;
+hxd.res.FileSystem.__name__ = ["hxd","res","FileSystem"];
+hxd.res.FileSystem.prototype = {
+	__class__: hxd.res.FileSystem
+};
+hxd.res.Resource = function(entry) {
+	this.entry = entry;
+};
+$hxClasses["hxd.res.Resource"] = hxd.res.Resource;
+hxd.res.Resource.__name__ = ["hxd","res","Resource"];
+hxd.res.Resource.prototype = {
+	watch: function(onChanged) {
+		if(hxd.res.Resource.LIVE_UPDATE) this.entry.watch(onChanged);
+	}
+	,__class__: hxd.res.Resource
+};
+hxd.res.FileEntry = function() { };
+$hxClasses["hxd.res.FileEntry"] = hxd.res.FileEntry;
+hxd.res.FileEntry.__name__ = ["hxd","res","FileEntry"];
+hxd.res.FileEntry.prototype = {
+	getBytes: function() {
+		return null;
+	}
+	,open: function() {
+	}
+	,skip: function(nbytes) {
+	}
+	,readByte: function() {
+		return 0;
+	}
+	,read: function(out,pos,size) {
+	}
+	,close: function() {
+	}
+	,load: function(onReady) {
+		if(!this.get_isAvailable()) throw "load() not implemented"; else if(onReady != null) onReady();
+	}
+	,loadBitmap: function(onLoaded) {
+		throw "loadBitmap() not implemented";
+	}
+	,watch: function(onChanged) {
+	}
+	,get_isAvailable: function() {
+		return true;
+	}
+	,get_path: function() {
+		throw "path() not implemented";
+		return null;
+	}
+	,get_extension: function() {
+		var np = this.name.split(".");
+		if(np.length == 1) return ""; else return np.pop().toLowerCase();
+	}
+	,__class__: hxd.res.FileEntry
+	,__properties__: {get_extension:"get_extension",get_path:"get_path",get_isAvailable:"get_isAvailable"}
+};
+hxd.res._EmbedFileSystem = {};
+hxd.res._EmbedFileSystem.EmbedEntry = function(fs,name,relPath,data) {
+	this.fs = fs;
+	this.name = name;
+	this.relPath = relPath;
+	this.data = data;
+};
+$hxClasses["hxd.res._EmbedFileSystem.EmbedEntry"] = hxd.res._EmbedFileSystem.EmbedEntry;
+hxd.res._EmbedFileSystem.EmbedEntry.__name__ = ["hxd","res","_EmbedFileSystem","EmbedEntry"];
+hxd.res._EmbedFileSystem.EmbedEntry.__super__ = hxd.res.FileEntry;
+hxd.res._EmbedFileSystem.EmbedEntry.prototype = $extend(hxd.res.FileEntry.prototype,{
+	getBytes: function() {
+		if(this.bytes == null) this.open();
+		return this.bytes;
+	}
+	,open: function() {
+		if(this.bytes == null) {
+			this.bytes = haxe.Resource.getBytes(this.data);
+			if(this.bytes == null) throw "Missing resource " + this.data;
+		}
+		this.readPos = 0;
+	}
+	,skip: function(nbytes) {
+		this.readPos += nbytes;
+	}
+	,readByte: function() {
+		return this.bytes.get(this.readPos++);
+	}
+	,read: function(out,pos,size) {
+		out.blit(pos,this.bytes,this.readPos,size);
+		this.readPos += size;
+	}
+	,close: function() {
+		this.bytes = null;
+		this.readPos = 0;
+	}
+	,load: function(onReady) {
+		if(onReady != null) haxe.Timer.delay(onReady,1);
+	}
+	,loadBitmap: function(onLoaded) {
+		var rawData = null;
+		var _g = 0;
+		var _g1 = haxe.Resource.content;
+		while(_g < _g1.length) {
+			var res = _g1[_g];
+			++_g;
+			if(res.name == this.data) {
+				rawData = res.data;
+				break;
+			}
+		}
+		if(rawData == null) throw "Missing resource " + this.data;
+		var image = new Image();
+		image.onload = function(_) {
+			onLoaded(image);
+		};
+		var extra = "";
+		var bytes = rawData.length * 6 >> 3;
+		var _g11 = 0;
+		var _g2 = (3 - bytes * 4 % 3) % 3;
+		while(_g11 < _g2) {
+			var i = _g11++;
+			extra += "=";
+		}
+		image.src = "data:image/" + this.get_extension() + ";base64," + rawData + extra;
+	}
+	,get_path: function() {
+		if(this.relPath == ".") return "<root>"; else return this.relPath;
+	}
+	,__class__: hxd.res._EmbedFileSystem.EmbedEntry
+});
+hxd.res.EmbedFileSystem = function(root) {
+	this.root = root;
+};
+$hxClasses["hxd.res.EmbedFileSystem"] = hxd.res.EmbedFileSystem;
+hxd.res.EmbedFileSystem.__name__ = ["hxd","res","EmbedFileSystem"];
+hxd.res.EmbedFileSystem.__interfaces__ = [hxd.res.FileSystem];
+hxd.res.EmbedFileSystem.resolve = function(path) {
+	return "R_" + hxd.res.EmbedFileSystem.invalidChars.replace(path,"_");
+};
+hxd.res.EmbedFileSystem.prototype = {
+	splitPath: function(path) {
+		if(path == ".") return []; else return path.split("/");
+	}
+	,exists: function(path) {
+		var r = this.root;
+		var _g = 0;
+		var _g1 = this.splitPath(path);
+		while(_g < _g1.length) {
+			var p = _g1[_g];
+			++_g;
+			r = Reflect.field(r,p);
+			if(r == null) return false;
+		}
+		return true;
+	}
+	,get: function(path) {
+		if(!this.exists(path)) throw new hxd.res.NotFound(path);
+		var id = hxd.res.EmbedFileSystem.resolve(path);
+		return new hxd.res._EmbedFileSystem.EmbedEntry(this,path.split("/").pop(),path,id);
+	}
+	,__class__: hxd.res.EmbedFileSystem
+};
+hxd.res.FileInput = function(f) {
+	this.f = f;
+	f.open();
+};
+$hxClasses["hxd.res.FileInput"] = hxd.res.FileInput;
+hxd.res.FileInput.__name__ = ["hxd","res","FileInput"];
+hxd.res.FileInput.__super__ = haxe.io.Input;
+hxd.res.FileInput.prototype = $extend(haxe.io.Input.prototype,{
+	skip: function(nbytes) {
+		this.f.skip(nbytes);
+	}
+	,readByte: function() {
+		return this.f.readByte();
+	}
+	,readBytes: function(b,pos,len) {
+		this.f.read(b,pos,len);
+		return len;
+	}
+	,close: function() {
+		this.f.close();
+	}
+	,__class__: hxd.res.FileInput
+});
+hxd.res.Image = function(entry) {
+	hxd.res.Resource.call(this,entry);
+};
+$hxClasses["hxd.res.Image"] = hxd.res.Image;
+hxd.res.Image.__name__ = ["hxd","res","Image"];
+hxd.res.Image.__super__ = hxd.res.Resource;
+hxd.res.Image.prototype = $extend(hxd.res.Resource.prototype,{
+	getSize: function() {
+		if(this.inf != null) return this.inf;
+		var f = new hxd.res.FileInput(this.entry);
+		var width = 0;
+		var height = 0;
+		var isPNG = false;
+		var _g = f.readUInt16();
+		switch(_g) {
+		case 55551:
+			f.set_bigEndian(true);
+			try {
+				while(true) {
+					var _g1 = f.readUInt16();
+					switch(_g1) {
+					case 65474:case 65472:
+						var len = f.readUInt16();
+						var prec = f.readByte();
+						height = f.readUInt16();
+						width = f.readUInt16();
+						throw "__break__";
+						break;
+					default:
+						f.skip(f.readUInt16() - 2);
+					}
+				}
+			} catch( e ) { if( e != "__break__" ) throw e; }
+			break;
+		case 20617:
+			isPNG = true;
+			var TMP = hxd.impl.Tmp.getBytes(256);
+			f.set_bigEndian(true);
+			f.readBytes(TMP,0,6);
+			while(true) {
+				var dataLen = f.readInt32();
+				if(f.readInt32() == 1229472850) {
+					width = f.readInt32();
+					height = f.readInt32();
+					break;
+				}
+				while(dataLen > 0) {
+					var k;
+					if(dataLen > TMP.length) k = TMP.length; else k = dataLen;
+					f.readBytes(TMP,0,k);
+					dataLen -= k;
+				}
+				var crc = f.readInt32();
+			}
+			hxd.impl.Tmp.saveBytes(TMP);
+			break;
+		default:
+			throw "Unsupported texture format " + this.entry.get_path();
+		}
+		f.close();
+		this.inf = { width : width, height : height, isPNG : isPNG};
+		return this.inf;
+	}
+	,getPixels: function() {
+		this.getSize();
+		if(this.inf.isPNG) {
+			var png = new format.png.Reader(new haxe.io.BytesInput(this.entry.getBytes()));
+			png.checkCRC = false;
+			var pixels = hxd.Pixels.alloc(this.inf.width,this.inf.height,hxd.PixelFormat.BGRA);
+			format.png.Tools.extract32(png.read(),pixels.bytes);
+			return pixels;
+		} else {
+			var bytes = this.entry.getBytes();
+			var p = hxd.res.NanoJpeg.decode(bytes);
+			return new hxd.Pixels(p.width,p.height,p.pixels,hxd.PixelFormat.BGRA);
+		}
+	}
+	,watchCallb: function() {
+		var w = this.inf.width;
+		var h = this.inf.height;
+		this.inf = null;
+		var s = this.getSize();
+		if(w != s.width || h != s.height) this.tex.resize(w,h);
+		this.tex.realloc = null;
+		this.loadTexture();
+	}
+	,loadTexture: function() {
+		var _g = this;
+		if(this.inf.isPNG) {
+			var load = function() {
+				_g.tex.alloc();
+				var pixels = _g.getPixels();
+				if(pixels.width != _g.tex.width || pixels.height != _g.tex.height) pixels.makeSquare();
+				_g.tex.uploadPixels(pixels);
+				pixels.dispose();
+				_g.tex.realloc = $bind(_g,_g.loadTexture);
+				_g.watch($bind(_g,_g.watchCallb));
+			};
+			if(this.entry.get_isAvailable()) load(); else this.entry.load(load);
+		} else this.entry.loadBitmap(function(bmp) {
+			var bmp1 = hxd.res._LoadedBitmap.LoadedBitmap_Impl_.toBitmap(bmp);
+			_g.tex.alloc();
+			if(bmp1.canvas.width != _g.tex.width || bmp1.canvas.height != _g.tex.height) {
+				var pixels1 = hxd._BitmapData.BitmapData_Impl_.nativeGetPixels(bmp1);
+				pixels1.makeSquare();
+				_g.tex.uploadPixels(pixels1);
+				pixels1.dispose();
+			} else _g.tex.uploadBitmap(bmp1);
+			_g.tex.realloc = $bind(_g,_g.loadTexture);
+			_g.watch($bind(_g,_g.watchCallb));
+		});
+	}
+	,toTexture: function() {
+		if(this.tex != null) return this.tex;
+		this.getSize();
+		var width = this.inf.width;
+		var height = this.inf.height;
+		if(!hxd.res.Image.ALLOW_NPOT) {
+			var tw = 1;
+			var th = 1;
+			while(tw < width) tw <<= 1;
+			while(th < height) th <<= 1;
+			width = tw;
+			height = th;
+		}
+		this.tex = new h3d.mat.Texture(width,height,[h3d.mat.TextureFlags.NoAlloc],{ fileName : "Image.hx", lineNumber : 150, className : "hxd.res.Image", methodName : "toTexture"});
+		if(hxd.res.Image.DEFAULT_FILTER != h3d.mat.Filter.Linear) this.tex.set_filter(hxd.res.Image.DEFAULT_FILTER);
+		this.tex.setName(this.entry.get_path());
+		this.loadTexture();
+		return this.tex;
+	}
+	,toTile: function() {
+		var size = this.getSize();
+		return h2d.Tile.fromTexture(this.toTexture()).sub(0,0,size.width,size.height);
+	}
+	,__class__: hxd.res.Image
+});
+hxd.res._LoadedBitmap = {};
+hxd.res._LoadedBitmap.LoadedBitmap_Impl_ = function() { };
+$hxClasses["hxd.res._LoadedBitmap.LoadedBitmap_Impl_"] = hxd.res._LoadedBitmap.LoadedBitmap_Impl_;
+hxd.res._LoadedBitmap.LoadedBitmap_Impl_.__name__ = ["hxd","res","_LoadedBitmap","LoadedBitmap_Impl_"];
+hxd.res._LoadedBitmap.LoadedBitmap_Impl_.toBitmap = function(this1) {
+	var canvas;
+	var _this = window.document;
+	canvas = _this.createElement("canvas");
+	canvas.width = this1.width;
+	canvas.height = this1.height;
+	var ctx = canvas.getContext("2d");
+	ctx.drawImage(this1,0,0);
+	return ctx;
+};
+hxd.res.Loader = function(fs) {
+	this.fs = fs;
+	this.cache = new haxe.ds.StringMap();
+};
+$hxClasses["hxd.res.Loader"] = hxd.res.Loader;
+hxd.res.Loader.__name__ = ["hxd","res","Loader"];
+hxd.res.Loader.prototype = {
+	loadImage: function(path) {
+		var i = this.cache.get(path);
+		if(i == null) {
+			i = new hxd.res.Image(this.fs.get(path));
+			this.cache.set(path,i);
+		}
+		return i;
+	}
+	,__class__: hxd.res.Loader
+};
+hxd.res.Filter = $hxClasses["hxd.res.Filter"] = { __ename__ : true, __constructs__ : ["Fast","Chromatic"] };
+hxd.res.Filter.Fast = ["Fast",0];
+hxd.res.Filter.Fast.toString = $estr;
+hxd.res.Filter.Fast.__enum__ = hxd.res.Filter;
+hxd.res.Filter.Chromatic = ["Chromatic",1];
+hxd.res.Filter.Chromatic.toString = $estr;
+hxd.res.Filter.Chromatic.__enum__ = hxd.res.Filter;
+hxd.res.Filter.__empty_constructs__ = [hxd.res.Filter.Fast,hxd.res.Filter.Chromatic];
+hxd.res._NanoJpeg = {};
+hxd.res._NanoJpeg.Component = function() {
+};
+$hxClasses["hxd.res._NanoJpeg.Component"] = hxd.res._NanoJpeg.Component;
+hxd.res._NanoJpeg.Component.__name__ = ["hxd","res","_NanoJpeg","Component"];
+hxd.res._NanoJpeg.Component.prototype = {
+	__class__: hxd.res._NanoJpeg.Component
+};
+hxd.res.NanoJpeg = function() {
+	var array = [new hxd.res._NanoJpeg.Component(),new hxd.res._NanoJpeg.Component(),new hxd.res._NanoJpeg.Component()];
+	var vec;
+	var this1;
+	this1 = new Array(array.length);
+	vec = this1;
+	var _g1 = 0;
+	var _g = array.length;
+	while(_g1 < _g) {
+		var i = _g1++;
+		vec[i] = array[i];
+	}
+	this.comps = vec;
+	var array1 = [(function($this) {
+		var $r;
+		var this2;
+		this2 = new Array(64);
+		$r = this2;
+		return $r;
+	}(this)),(function($this) {
+		var $r;
+		var this3;
+		this3 = new Array(64);
+		$r = this3;
+		return $r;
+	}(this)),(function($this) {
+		var $r;
+		var this4;
+		this4 = new Array(64);
+		$r = this4;
+		return $r;
+	}(this)),(function($this) {
+		var $r;
+		var this5;
+		this5 = new Array(64);
+		$r = this5;
+		return $r;
+	}(this))];
+	var vec1;
+	var this6;
+	this6 = new Array(array1.length);
+	vec1 = this6;
+	var _g11 = 0;
+	var _g2 = array1.length;
+	while(_g11 < _g2) {
+		var i1 = _g11++;
+		vec1[i1] = array1[i1];
+	}
+	this.qtab = vec1;
+	var this7;
+	this7 = new Array(16);
+	this.counts = this7;
+	var this8;
+	this8 = new Array(64);
+	this.block = this8;
+	var array2 = [0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63];
+	var vec2;
+	var this9;
+	this9 = new Array(array2.length);
+	vec2 = this9;
+	var _g12 = 0;
+	var _g3 = array2.length;
+	while(_g12 < _g3) {
+		var i2 = _g12++;
+		vec2[i2] = array2[i2];
+	}
+	this.njZZ = vec2;
+	var array3 = [null,null,null,null];
+	var vec3;
+	var this10;
+	this10 = new Array(array3.length);
+	vec3 = this10;
+	var _g13 = 0;
+	var _g4 = array3.length;
+	while(_g13 < _g4) {
+		var i3 = _g13++;
+		vec3[i3] = array3[i3];
+	}
+	this.vlctab = vec3;
+};
+$hxClasses["hxd.res.NanoJpeg"] = hxd.res.NanoJpeg;
+hxd.res.NanoJpeg.__name__ = ["hxd","res","NanoJpeg"];
+hxd.res.NanoJpeg.njClip = function(x) {
+	if(x < 0) return 0; else if(x > 255) return 255; else return x;
+};
+hxd.res.NanoJpeg.decode = function(bytes,filter,position,size) {
+	if(size == null) size = -1;
+	if(position == null) position = 0;
+	if(hxd.res.NanoJpeg.inst == null) hxd.res.NanoJpeg.inst = new hxd.res.NanoJpeg();
+	hxd.res.NanoJpeg.inst.njInit(bytes,position,size,filter);
+	return hxd.res.NanoJpeg.inst.njDecode();
+};
+hxd.res.NanoJpeg.prototype = {
+	njInit: function(bytes,pos,size,filter) {
+		this.bytes = bytes;
+		this.pos = pos;
+		if(filter == null) this.filter = hxd.res.Filter.Chromatic; else this.filter = filter;
+		if(size < 0) size = bytes.length - pos;
+		var _g = 0;
+		while(_g < 4) {
+			var i = _g++;
+			if(this.vlctab[i] == null) {
+				var val = hxd.impl.Tmp.getBytes(131072);
+				this.vlctab[i] = val;
+			}
+		}
+		this.size = size;
+		this.qtused = 0;
+		this.qtavail = 0;
+		this.rstinterval = 0;
+		this.buf = 0;
+		this.bufbits = 0;
+		var _g1 = 0;
+		while(_g1 < 3) {
+			var i1 = _g1++;
+			this.comps[i1].dcpred = 0;
+		}
+	}
+	,cleanup: function() {
+		this.bytes = null;
+		var _g = 0;
+		var _g1 = this.comps;
+		while(_g < _g1.length) {
+			var c = _g1[_g];
+			++_g;
+			if(c.pixels != null) {
+				hxd.impl.Tmp.saveBytes(c.pixels);
+				c.pixels = null;
+			}
+		}
+		var _g2 = 0;
+		while(_g2 < 4) {
+			var i = _g2++;
+			if(this.vlctab[i] != null) {
+				hxd.impl.Tmp.saveBytes(this.vlctab[i]);
+				this.vlctab[i] = null;
+			}
+		}
+	}
+	,njSkip: function(count) {
+		this.pos += count;
+		this.size -= count;
+		this.length -= count;
+		if(this.size < 0) throw "Invalid JPEG file";
+	}
+	,njShowBits: function(bits) {
+		if(bits == 0) return 0;
+		while(this.bufbits < bits) {
+			if(this.size <= 0) {
+				this.buf = this.buf << 8 | 255;
+				this.bufbits += 8;
+				continue;
+			}
+			var newbyte = this.bytes.b[this.pos];
+			this.pos++;
+			this.size--;
+			this.bufbits += 8;
+			this.buf = this.buf << 8 | newbyte;
+			if(newbyte == 255) {
+				if(this.size == 0) throw "Invalid JPEG file";
+				var marker = this.bytes.b[this.pos];
+				this.pos++;
+				this.size--;
+				switch(marker) {
+				case 0:case 255:
+					break;
+				case 217:
+					this.size = 0;
+					break;
+				default:
+					if((marker & 248) != 208) throw "Invalid JPEG file";
+					this.buf = this.buf << 8 | marker;
+					this.bufbits += 8;
+				}
+			}
+		}
+		return this.buf >> this.bufbits - bits & (1 << bits) - 1;
+	}
+	,njGetBits: function(bits) {
+		var r = this.njShowBits(bits);
+		this.bufbits -= bits;
+		return r;
+	}
+	,njDecodeSOF: function() {
+		if(this.size < 2) throw "Invalid JPEG file";
+		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		if(this.length > this.size) throw "Invalid JPEG file";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		if(this.length < 9) throw "Invalid JPEG file";
+		if(this.bytes.b[this.pos] != 8) this.notSupported();
+		this.height = this.bytes.b[this.pos + 1] << 8 | this.bytes.b[this.pos + 2];
+		this.width = this.bytes.b[this.pos + 3] << 8 | this.bytes.b[this.pos + 4];
+		this.ncomp = this.bytes.b[this.pos + 5];
+		this.pos += 6;
+		this.size -= 6;
+		this.length -= 6;
+		if(this.size < 0) throw "Invalid JPEG file";
+		var _g = this.ncomp;
+		switch(_g) {
+		case 1:case 3:
+			break;
+		default:
+			this.notSupported();
+		}
+		if(this.length < this.ncomp * 3) throw "Invalid JPEG file";
+		var ssxmax = 0;
+		var ssymax = 0;
+		var _g1 = 0;
+		var _g2 = this.ncomp;
+		while(_g1 < _g2) {
+			var i = _g1++;
+			var c = this.comps[i];
+			c.cid = this.bytes.b[this.pos];
+			c.ssx = this.bytes.b[this.pos + 1] >> 4;
+			if(c.ssx == 0) throw "Invalid JPEG file";
+			if((c.ssx & c.ssx - 1) != 0) this.notSupported();
+			c.ssy = this.bytes.b[this.pos + 1] & 15;
+			if(c.ssy == 0) throw "Invalid JPEG file";
+			if((c.ssy & c.ssy - 1) != 0) this.notSupported();
+			c.qtsel = this.bytes.b[this.pos + 2];
+			if((c.qtsel & 252) != 0) throw "Invalid JPEG file";
+			this.pos += 3;
+			this.size -= 3;
+			this.length -= 3;
+			if(this.size < 0) throw "Invalid JPEG file";
+			this.qtused |= 1 << c.qtsel;
+			if(c.ssx > ssxmax) ssxmax = c.ssx;
+			if(c.ssy > ssymax) ssymax = c.ssy;
+		}
+		if(this.ncomp == 1) {
+			var c1 = this.comps[0];
+			c1.ssx = c1.ssy = ssxmax = ssymax = 1;
+		}
+		this.mbsizex = ssxmax << 3;
+		this.mbsizey = ssymax << 3;
+		this.mbwidth = (this.width + this.mbsizex - 1) / this.mbsizex | 0;
+		this.mbheight = (this.height + this.mbsizey - 1) / this.mbsizey | 0;
+		var _g11 = 0;
+		var _g3 = this.ncomp;
+		while(_g11 < _g3) {
+			var i1 = _g11++;
+			var c2 = this.comps[i1];
+			c2.width = (this.width * c2.ssx + ssxmax - 1) / ssxmax | 0;
+			c2.stride = c2.width + 7 & 2147483640;
+			c2.height = (this.height * c2.ssy + ssymax - 1) / ssymax | 0;
+			c2.stride = this.mbwidth * this.mbsizex * c2.ssx / ssxmax | 0;
+			if(c2.width < 3 && c2.ssx != ssxmax || c2.height < 3 && c2.ssy != ssymax) this.notSupported();
+			c2.pixels = hxd.impl.Tmp.getBytes(c2.stride * (this.mbheight * this.mbsizey * c2.ssy / ssymax | 0));
+		}
+		this.njSkip(this.length);
+	}
+	,njDecodeDQT: function() {
+		if(this.size < 2) throw "Invalid JPEG file";
+		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		if(this.length > this.size) throw "Invalid JPEG file";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		while(this.length >= 65) {
+			var i = this.bytes.b[this.pos];
+			if((i & 252) != 0) throw "Invalid JPEG file";
+			this.qtavail |= 1 << i;
+			var t = this.qtab[i];
+			var _g = 0;
+			while(_g < 64) {
+				var k = _g++;
+				t[k] = this.bytes.b[this.pos + (k + 1)];
+			}
+			this.pos += 65;
+			this.size -= 65;
+			this.length -= 65;
+			if(this.size < 0) throw "Invalid JPEG file";
+		}
+		if(this.length != 0) throw "Invalid JPEG file";
+	}
+	,njDecodeDHT: function() {
+		if(this.size < 2) throw "Invalid JPEG file";
+		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		if(this.length > this.size) throw "Invalid JPEG file";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		while(this.length >= 17) {
+			var i = this.bytes.b[this.pos];
+			if((i & 236) != 0) throw "Invalid JPEG file";
+			if((i & 2) != 0) this.notSupported();
+			i = (i | i >> 3) & 3;
+			var _g = 0;
+			while(_g < 16) {
+				var codelen = _g++;
+				this.counts[codelen] = this.bytes.b[this.pos + (codelen + 1)];
+			}
+			this.pos += 17;
+			this.size -= 17;
+			this.length -= 17;
+			if(this.size < 0) throw "Invalid JPEG file";
+			var vlc = this.vlctab[i];
+			var vpos = 0;
+			var remain = 65536;
+			var spread = 65536;
+			var _g1 = 1;
+			while(_g1 < 17) {
+				var codelen1 = _g1++;
+				spread >>= 1;
+				var currcnt = this.counts[codelen1 - 1];
+				if(currcnt == 0) continue;
+				if(this.length < currcnt) throw "Invalid JPEG file";
+				remain -= currcnt << 16 - codelen1;
+				if(remain < 0) throw "Invalid JPEG file";
+				var _g11 = 0;
+				while(_g11 < currcnt) {
+					var i1 = _g11++;
+					var code = this.bytes.b[this.pos + i1];
+					var _g2 = 0;
+					while(_g2 < spread) {
+						var j = _g2++;
+						vlc.set(vpos++,codelen1);
+						vlc.set(vpos++,code);
+					}
+				}
+				this.pos += currcnt;
+				this.size -= currcnt;
+				this.length -= currcnt;
+				if(this.size < 0) throw "Invalid JPEG file";
+			}
+			while(remain-- != 0) {
+				vlc.b[vpos] = 0;
+				vpos += 2;
+			}
+		}
+		if(this.length != 0) throw "Invalid JPEG file";
+	}
+	,njDecodeDRI: function() {
+		if(this.size < 2) throw "Invalid JPEG file";
+		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		if(this.length > this.size) throw "Invalid JPEG file";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		if(this.length < 2) throw "Invalid JPEG file";
+		this.rstinterval = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		this.njSkip(this.length);
+	}
+	,njGetVLC: function(vlc) {
+		var value = this.njShowBits(16);
+		var bits = vlc.b[value << 1];
+		if(bits == 0) throw "Invalid JPEG file";
+		if(this.bufbits < bits) this.njShowBits(bits);
+		this.bufbits -= bits;
+		value = vlc.b[value << 1 | 1];
+		this.vlcCode = value;
+		bits = value & 15;
+		if(bits == 0) return 0;
+		value = this.njGetBits(bits);
+		if(value < 1 << bits - 1) value += (-1 << bits) + 1;
+		return value;
+	}
+	,njRowIDCT: function(bp) {
+		var x0;
+		var x1;
+		var x2;
+		var x3;
+		var x4;
+		var x5;
+		var x6;
+		var x7;
+		var x8;
+		if(((x1 = this.block[bp + 4] << 11) | (x2 = this.block[bp + 6]) | (x3 = this.block[bp + 2]) | (x4 = this.block[bp + 1]) | (x5 = this.block[bp + 7]) | (x6 = this.block[bp + 5]) | (x7 = this.block[bp + 3])) == 0) {
+			var val;
+			var val1;
+			var val2;
+			var val3;
+			var val4;
+			var val5;
+			var val6 = this.block[bp + 7] = this.block[bp] << 3;
+			val5 = this.block[bp + 6] = val6;
+			val4 = this.block[bp + 5] = val5;
+			val3 = this.block[bp + 4] = val4;
+			val2 = this.block[bp + 3] = val3;
+			val1 = this.block[bp + 2] = val2;
+			val = this.block[bp + 1] = val1;
+			this.block[bp] = val;
+			return;
+		}
+		x0 = (this.block[bp] << 11) + 128;
+		x8 = 565 * (x4 + x5);
+		x4 = x8 + 2276 * x4;
+		x5 = x8 - 3406 * x5;
+		x8 = 2408 * (x6 + x7);
+		x6 = x8 - 799 * x6;
+		x7 = x8 - 4017 * x7;
+		x8 = x0 + x1;
+		x0 -= x1;
+		x1 = 1108 * (x3 + x2);
+		x2 = x1 - 3784 * x2;
+		x3 = x1 + 1568 * x3;
+		x1 = x4 + x6;
+		x4 -= x6;
+		x6 = x5 + x7;
+		x5 -= x7;
+		x7 = x8 + x3;
+		x8 -= x3;
+		x3 = x0 + x2;
+		x0 -= x2;
+		x2 = 181 * (x4 + x5) + 128 >> 8;
+		x4 = 181 * (x4 - x5) + 128 >> 8;
+		this.block[bp] = x7 + x1 >> 8;
+		this.block[bp + 1] = x3 + x2 >> 8;
+		this.block[bp + 2] = x0 + x4 >> 8;
+		this.block[bp + 3] = x8 + x6 >> 8;
+		this.block[bp + 4] = x8 - x6 >> 8;
+		this.block[bp + 5] = x0 - x4 >> 8;
+		this.block[bp + 6] = x3 - x2 >> 8;
+		this.block[bp + 7] = x7 - x1 >> 8;
+	}
+	,njColIDCT: function(bp,out,po,stride) {
+		var x0;
+		var x1;
+		var x2;
+		var x3;
+		var x4;
+		var x5;
+		var x6;
+		var x7;
+		var x8;
+		if(((x1 = this.block[bp + 32] << 8) | (x2 = this.block[bp + 48]) | (x3 = this.block[bp + 16]) | (x4 = this.block[bp + 8]) | (x5 = this.block[bp + 56]) | (x6 = this.block[bp + 40]) | (x7 = this.block[bp + 24])) == 0) {
+			x1 = hxd.res.NanoJpeg.njClip((this.block[bp] + 32 >> 6) + 128);
+			var _g = 0;
+			while(_g < 8) {
+				var i = _g++;
+				out.b[po] = x1 & 255;
+				po += stride;
+			}
+			return;
+		}
+		x0 = (this.block[bp] << 8) + 8192;
+		x8 = 565 * (x4 + x5) + 4;
+		x4 = x8 + 2276 * x4 >> 3;
+		x5 = x8 - 3406 * x5 >> 3;
+		x8 = 2408 * (x6 + x7) + 4;
+		x6 = x8 - 799 * x6 >> 3;
+		x7 = x8 - 4017 * x7 >> 3;
+		x8 = x0 + x1;
+		x0 -= x1;
+		x1 = 1108 * (x3 + x2) + 4;
+		x2 = x1 - 3784 * x2 >> 3;
+		x3 = x1 + 1568 * x3 >> 3;
+		x1 = x4 + x6;
+		x4 -= x6;
+		x6 = x5 + x7;
+		x5 -= x7;
+		x7 = x8 + x3;
+		x8 -= x3;
+		x3 = x0 + x2;
+		x0 -= x2;
+		x2 = 181 * (x4 + x5) + 128 >> 8;
+		x4 = 181 * (x4 - x5) + 128 >> 8;
+		var v = hxd.res.NanoJpeg.njClip((x7 + x1 >> 14) + 128);
+		out.b[po] = v & 255;
+		po += stride;
+		var v1 = hxd.res.NanoJpeg.njClip((x3 + x2 >> 14) + 128);
+		out.b[po] = v1 & 255;
+		po += stride;
+		var v2 = hxd.res.NanoJpeg.njClip((x0 + x4 >> 14) + 128);
+		out.b[po] = v2 & 255;
+		po += stride;
+		var v3 = hxd.res.NanoJpeg.njClip((x8 + x6 >> 14) + 128);
+		out.b[po] = v3 & 255;
+		po += stride;
+		var v4 = hxd.res.NanoJpeg.njClip((x8 - x6 >> 14) + 128);
+		out.b[po] = v4 & 255;
+		po += stride;
+		var v5 = hxd.res.NanoJpeg.njClip((x0 - x4 >> 14) + 128);
+		out.b[po] = v5 & 255;
+		po += stride;
+		var v6 = hxd.res.NanoJpeg.njClip((x3 - x2 >> 14) + 128);
+		out.b[po] = v6 & 255;
+		po += stride;
+		var v7 = hxd.res.NanoJpeg.njClip((x7 - x1 >> 14) + 128);
+		out.b[po] = v7 & 255;
+	}
+	,njDecodeBlock: function(c,po) {
+		var out = c.pixels;
+		var value;
+		var coef = 0;
+		var _g = 0;
+		while(_g < 64) {
+			var i = _g++;
+			this.block[i] = 0;
+		}
+		c.dcpred += this.njGetVLC(this.vlctab[c.dctabsel]);
+		var qt = this.qtab[c.qtsel];
+		var at = this.vlctab[c.actabsel];
+		this.block[0] = c.dcpred * qt[0];
+		do {
+			value = this.njGetVLC(at);
+			if(this.vlcCode == 0) break;
+			if((this.vlcCode & 15) == 0 && this.vlcCode != 240) throw "Invalid JPEG file";
+			coef += (this.vlcCode >> 4) + 1;
+			if(coef > 63) throw "Invalid JPEG file";
+			this.block[this.njZZ[coef]] = value * qt[coef];
+		} while(coef < 63);
+		var _g1 = 0;
+		while(_g1 < 8) {
+			var coef1 = _g1++;
+			this.njRowIDCT(coef1 * 8);
+		}
+		var _g2 = 0;
+		while(_g2 < 8) {
+			var coef2 = _g2++;
+			this.njColIDCT(coef2,out,coef2 + po,c.stride);
+		}
+	}
+	,notSupported: function() {
+		throw "This JPG file is not supported";
+	}
+	,njDecodeScan: function() {
+		if(this.size < 2) throw "Invalid JPEG file";
+		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		if(this.length > this.size) throw "Invalid JPEG file";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		if(this.length < 4 + 2 * this.ncomp) throw "Invalid JPEG file";
+		if(this.bytes.b[this.pos] != this.ncomp) this.notSupported();
+		this.pos += 1;
+		this.size -= 1;
+		this.length -= 1;
+		if(this.size < 0) throw "Invalid JPEG file";
+		var _g1 = 0;
+		var _g = this.ncomp;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var c = this.comps[i];
+			if(this.bytes.b[this.pos] != c.cid) throw "Invalid JPEG file";
+			if((this.bytes.b[this.pos + 1] & 238) != 0) throw "Invalid JPEG file";
+			c.dctabsel = this.bytes.b[this.pos + 1] >> 4;
+			c.actabsel = this.bytes.b[this.pos + 1] & 1 | 2;
+			this.pos += 2;
+			this.size -= 2;
+			this.length -= 2;
+			if(this.size < 0) throw "Invalid JPEG file";
+		}
+		if(this.bytes.b[this.pos] != 0 || this.bytes.b[this.pos + 1] != 63 || this.bytes.b[this.pos + 2] != 0) this.notSupported();
+		this.njSkip(this.length);
+		var mbx = 0;
+		var mby = 0;
+		var rstcount = this.rstinterval;
+		var nextrst = 0;
+		while(true) {
+			var _g11 = 0;
+			var _g2 = this.ncomp;
+			while(_g11 < _g2) {
+				var i1 = _g11++;
+				var c1 = this.comps[i1];
+				var _g3 = 0;
+				var _g21 = c1.ssy;
+				while(_g3 < _g21) {
+					var sby = _g3++;
+					var _g5 = 0;
+					var _g4 = c1.ssx;
+					while(_g5 < _g4) {
+						var sbx = _g5++;
+						this.njDecodeBlock(c1,(mby * c1.ssy + sby) * c1.stride + mbx * c1.ssx + sbx << 3);
+					}
+				}
+			}
+			if(++mbx >= this.mbwidth) {
+				mbx = 0;
+				if(++mby >= this.mbheight) break;
+			}
+			if(this.rstinterval != 0 && --rstcount == 0) {
+				this.bufbits &= 248;
+				var i2 = this.njGetBits(16);
+				if((i2 & 65528) != 65488 || (i2 & 7) != nextrst) throw "Invalid JPEG file";
+				nextrst = nextrst + 1 & 7;
+				rstcount = this.rstinterval;
+				var _g6 = 0;
+				while(_g6 < 3) {
+					var i3 = _g6++;
+					this.comps[i3].dcpred = 0;
+				}
+			}
+		}
+	}
+	,njUpsampleH: function(c) {
+		var xmax = c.width - 3;
+		var cout = hxd.impl.Tmp.getBytes(c.width * c.height << 1);
+		var lout = cout;
+		var lin = c.pixels;
+		var pi = 0;
+		var po = 0;
+		var _g1 = 0;
+		var _g = c.height;
+		while(_g1 < _g) {
+			var y = _g1++;
+			var v = hxd.res.NanoJpeg.njClip(139 * lin.b[pi] + -11 * lin.b[pi + 1] + 64 >> 7);
+			lout.b[po] = v & 255;
+			var v1 = hxd.res.NanoJpeg.njClip(104 * lin.b[pi] + 27 * lin.b[pi + 1] + -3 * lin.b[pi + 2] + 64 >> 7);
+			lout.b[po + 1] = v1 & 255;
+			var v2 = hxd.res.NanoJpeg.njClip(28 * lin.b[pi] + 109 * lin.b[pi + 1] + -9 * lin.b[pi + 2] + 64 >> 7);
+			lout.b[po + 2] = v2 & 255;
+			var _g2 = 0;
+			while(_g2 < xmax) {
+				var x = _g2++;
+				var v3 = hxd.res.NanoJpeg.njClip(-9 * lin.b[pi + x] + 111 * lin.b[pi + x + 1] + 29 * lin.b[pi + x + 2] + -3 * lin.b[pi + x + 3] + 64 >> 7);
+				lout.b[po + (x << 1) + 3] = v3 & 255;
+				var v4 = hxd.res.NanoJpeg.njClip(-3 * lin.b[pi + x] + 29 * lin.b[pi + x + 1] + 111 * lin.b[pi + x + 2] + -9 * lin.b[pi + x + 3] + 64 >> 7);
+				lout.b[po + (x << 1) + 4] = v4 & 255;
+			}
+			pi += c.stride;
+			po += c.width << 1;
+			var v5 = hxd.res.NanoJpeg.njClip(28 * lin.b[pi - 1] + 109 * lin.b[pi - 2] + -9 * lin.b[pi - 3] + 64 >> 7);
+			lout.b[po - 3] = v5 & 255;
+			var v6 = hxd.res.NanoJpeg.njClip(104 * lin.b[pi - 1] + 27 * lin.b[pi - 2] + -3 * lin.b[pi - 3] + 64 >> 7);
+			lout.b[po - 2] = v6 & 255;
+			var v7 = hxd.res.NanoJpeg.njClip(139 * lin.b[pi - 1] + -11 * lin.b[pi - 2] + 64 >> 7);
+			lout.b[po - 1] = v7 & 255;
+		}
+		c.width <<= 1;
+		c.stride = c.width;
+		hxd.impl.Tmp.saveBytes(c.pixels);
+		c.pixels = cout;
+	}
+	,njUpsampleV: function(c) {
+		var w = c.width;
+		var s1 = c.stride;
+		var s2 = s1 + s1;
+		var out = hxd.impl.Tmp.getBytes(c.width * c.height << 1);
+		var pi = 0;
+		var po = 0;
+		var cout = out;
+		var cin = c.pixels;
+		var _g = 0;
+		while(_g < w) {
+			var x = _g++;
+			pi = po = x;
+			var v = hxd.res.NanoJpeg.njClip(139 * cin.b[pi] + -11 * cin.b[pi + s1] + 64 >> 7);
+			cout.b[po] = v & 255;
+			po += w;
+			var v1 = hxd.res.NanoJpeg.njClip(104 * cin.b[pi] + 27 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7);
+			cout.b[po] = v1 & 255;
+			po += w;
+			var v2 = hxd.res.NanoJpeg.njClip(28 * cin.b[pi] + 109 * cin.b[pi + s1] + -9 * cin.b[pi + s2] + 64 >> 7);
+			cout.b[po] = v2 & 255;
+			po += w;
+			pi += s1;
+			var _g2 = 0;
+			var _g1 = c.height - 2;
+			while(_g2 < _g1) {
+				var y = _g2++;
+				var v3 = hxd.res.NanoJpeg.njClip(-9 * cin.b[pi - s1] + 111 * cin.b[pi] + 29 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7);
+				cout.b[po] = v3 & 255;
+				po += w;
+				var v4 = hxd.res.NanoJpeg.njClip(-3 * cin.b[pi - s1] + 29 * cin.b[pi] + 111 * cin.b[pi + s1] + -9 * cin.b[pi + s2] + 64 >> 7);
+				cout.b[po] = v4 & 255;
+				po += w;
+				pi += s1;
+			}
+			pi += s1;
+			var v5 = hxd.res.NanoJpeg.njClip(28 * cin.b[pi] + 109 * cin.b[pi - s1] + -9 * cin.b[pi - s2] + 64 >> 7);
+			cout.b[po] = v5 & 255;
+			po += w;
+			var v6 = hxd.res.NanoJpeg.njClip(104 * cin.b[pi] + 27 * cin.b[pi - s1] + -3 * cin.b[pi - s2] + 64 >> 7);
+			cout.b[po] = v6 & 255;
+			po += w;
+			var v7 = hxd.res.NanoJpeg.njClip(139 * cin.b[pi] + -11 * cin.b[pi - s1] + 64 >> 7);
+			cout.b[po] = v7 & 255;
+		}
+		c.height <<= 1;
+		c.stride = c.width;
+		hxd.impl.Tmp.saveBytes(c.pixels);
+		c.pixels = out;
+	}
+	,njUpsample: function(c) {
+		var xshift = 0;
+		var yshift = 0;
+		while(c.width < this.width) {
+			c.width <<= 1;
+			++xshift;
+		}
+		while(c.height < this.height) {
+			c.height <<= 1;
+			++yshift;
+		}
+		var out = hxd.impl.Tmp.getBytes(c.width * c.height);
+		var lin = c.pixels;
+		var pout = 0;
+		var lout = out;
+		var _g1 = 0;
+		var _g = c.height;
+		while(_g1 < _g) {
+			var y = _g1++;
+			var pin = (y >> yshift) * c.stride;
+			var _g3 = 0;
+			var _g2 = c.width;
+			while(_g3 < _g2) {
+				var x = _g3++;
+				var pos = pout++;
+				lout.b[pos] = lin.b[(x >> xshift) + pin] & 255;
+			}
+		}
+		c.stride = c.width;
+		hxd.impl.Tmp.saveBytes(c.pixels);
+		c.pixels = out;
+	}
+	,njConvert: function() {
+		var _g1 = 0;
+		var _g = this.ncomp;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var c = this.comps[i];
+			var _g2 = this.filter;
+			switch(_g2[1]) {
+			case 0:
+				if(c.width < this.width || c.height < this.height) this.njUpsample(c);
+				break;
+			case 1:
+				while(c.width < this.width || c.height < this.height) {
+					if(c.width < this.width) this.njUpsampleH(c);
+					if(c.height < this.height) this.njUpsampleV(c);
+				}
+				break;
+			}
+			if(c.width < this.width || c.height < this.height) throw "assert";
+		}
+		var pixels = hxd.impl.Tmp.getBytes(this.width * this.height * 4);
+		if(this.ncomp == 3) {
+			var py = this.comps[0].pixels;
+			var pcb = this.comps[1].pixels;
+			var pcr = this.comps[2].pixels;
+			var pix = pixels;
+			var k1 = 0;
+			var k2 = 0;
+			var k3 = 0;
+			var out = 0;
+			var _g11 = 0;
+			var _g3 = this.height;
+			while(_g11 < _g3) {
+				var yy = _g11++;
+				var _g31 = 0;
+				var _g21 = this.width;
+				while(_g31 < _g21) {
+					var x = _g31++;
+					var y;
+					y = (function($this) {
+						var $r;
+						var i1 = k1++;
+						$r = py.b[i1];
+						return $r;
+					}(this)) << 8;
+					var cb;
+					cb = (function($this) {
+						var $r;
+						var i2 = k2++;
+						$r = pcb.b[i2];
+						return $r;
+					}(this)) - 128;
+					var cr;
+					cr = (function($this) {
+						var $r;
+						var i3 = k3++;
+						$r = pcr.b[i3];
+						return $r;
+					}(this)) - 128;
+					var r = hxd.res.NanoJpeg.njClip(y + 359 * cr + 128 >> 8);
+					var g = hxd.res.NanoJpeg.njClip(y - 88 * cb - 183 * cr + 128 >> 8);
+					var b = hxd.res.NanoJpeg.njClip(y + 454 * cb + 128 >> 8);
+					var out1 = out++;
+					pix.b[out1] = b & 255;
+					var out2 = out++;
+					pix.b[out2] = g & 255;
+					var out3 = out++;
+					pix.b[out3] = r & 255;
+					var out4 = out++;
+					pix.b[out4] = 255;
+				}
+				k1 += this.comps[0].stride - this.width;
+				k2 += this.comps[1].stride - this.width;
+				k3 += this.comps[2].stride - this.width;
+			}
+		} else throw "TODO";
+		return pixels;
+	}
+	,njDecode: function() {
+		if(this.size < 2 || this.bytes.b[this.pos] != 255 || this.bytes.b[this.pos + 1] != 216) throw "This file is not a JPEG";
+		this.pos += 2;
+		this.size -= 2;
+		this.length -= 2;
+		if(this.size < 0) throw "Invalid JPEG file";
+		try {
+			while(true) {
+				if(this.size < 2 || this.bytes.b[this.pos] != 255) throw "Invalid JPEG file";
+				this.pos += 2;
+				this.size -= 2;
+				this.length -= 2;
+				if(this.size < 0) throw "Invalid JPEG file";
+				var _g = this.bytes.b[this.pos + -1];
+				switch(_g) {
+				case 192:
+					this.njDecodeSOF();
+					break;
+				case 219:
+					this.njDecodeDQT();
+					break;
+				case 196:
+					this.njDecodeDHT();
+					break;
+				case 221:
+					this.njDecodeDRI();
+					break;
+				case 218:
+					this.njDecodeScan();
+					throw "__break__";
+					break;
+				case 254:
+					if(this.size < 2) throw "Invalid JPEG file";
+					this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+					if(this.length > this.size) throw "Invalid JPEG file";
+					this.pos += 2;
+					this.size -= 2;
+					this.length -= 2;
+					if(this.size < 0) throw "Invalid JPEG file";
+					this.njSkip(this.length);
+					break;
+				case 194:
+					throw "Unsupported progressive JPG";
+					break;
+				case 195:
+					throw "Unsupported lossless JPG";
+					break;
+				default:
+					var _g1 = this.bytes.b[this.pos + -1] & 240;
+					switch(_g1) {
+					case 224:
+						if(this.size < 2) throw "Invalid JPEG file";
+						this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+						if(this.length > this.size) throw "Invalid JPEG file";
+						this.pos += 2;
+						this.size -= 2;
+						this.length -= 2;
+						if(this.size < 0) throw "Invalid JPEG file";
+						this.njSkip(this.length);
+						break;
+					case 192:
+						throw "Unsupported jpeg type " + (this.bytes.b[this.pos + -1] & 15);
+						break;
+					default:
+						throw "Unsupported jpeg tag 0x" + StringTools.hex(this.bytes.b[this.pos + -1],2);
+					}
+				}
+			}
+		} catch( e ) { if( e != "__break__" ) throw e; }
+		var pixels = this.njConvert();
+		this.cleanup();
+		return { pixels : pixels, width : this.width, height : this.height};
+	}
+	,__class__: hxd.res.NanoJpeg
+};
+hxd.res.NotFound = function(path) {
+	this.path = path;
+};
+$hxClasses["hxd.res.NotFound"] = hxd.res.NotFound;
+hxd.res.NotFound.__name__ = ["hxd","res","NotFound"];
+hxd.res.NotFound.prototype = {
+	toString: function() {
+		return "Resource file not found '" + this.path + "'";
+	}
+	,__class__: hxd.res.NotFound
 };
 hxsl.Type = $hxClasses["hxsl.Type"] = { __ename__ : true, __constructs__ : ["TVoid","TInt","TBool","TFloat","TString","TVec","TMat3","TMat4","TMat3x4","TBytes","TSampler2D","TSamplerCube","TStruct","TFun","TArray"] };
 hxsl.Type.TVoid = ["TVoid",0];
@@ -13924,7 +17050,7 @@ js.html._CanvasElement.CanvasUtil.getContextWebGL = function(canvas,attribs) {
 	return null;
 };
 var ld31 = {};
-ld31.Game = function() {
+ld31.Game = function(restart) {
 	this._frameTime = 0.01;
 	this._tm = new ld31.gameplay.Tilemap();
 	this._playerControl = new ld31.gameplay.PlayerControl();
@@ -13937,12 +17063,13 @@ ld31.Game.prototype = {
 		this._dt = 0.;
 		this._t = haxe.Timer.stamp();
 		this._dir = new ld31.math.Dir();
+		this._lastDirChange = this._t;
 		var p = ld31.gameplay.Tilemap.getNeutralPos();
 		var _g = 0;
-		while(_g < 14) {
+		while(_g < 13) {
 			var i = _g++;
 			var _g1 = 0;
-			while(_g1 < 14) {
+			while(_g1 < 13) {
 				var j = _g1++;
 				if(this._tm.get(i,j) == 1) {
 					var n = new ld31.graphic.CubeMesh(1,this._graphic.s3d);
@@ -13959,17 +17086,56 @@ ld31.Game.prototype = {
 		}
 		this._playerControl.x = p.x;
 		this._playerControl.y = p.y - 1;
+		this._playerControl.onRestart = $bind(this,this.orbital);
 		this._playerMesh = new ld31.graphic.PlayerMesh(this._graphic.s3d);
 		this._playerMesh.scale(0.5);
 		hxd.System.setLoop($bind(this,this.mainLoop));
-		this.createPolyomino();
+		this.initAnimPlayer();
+		this._msgNum = 0;
+		this.updateMsg();
+	}
+	,updateMsg: function() {
+		if(this._msgNum == 0) {
+			this._msgNum++;
+			this._graphic.addMsg(this._msgNum);
+		} else if(this._msgNum == 1) {
+			if(hxd.Key.isDown(37) || hxd.Key.isDown(39)) {
+				this._msgNum++;
+				this._graphic.addMsg(this._msgNum);
+			}
+		} else if(this._msgNum == 2) {
+			if(hxd.Key.isDown(32)) {
+				this._msgNum++;
+				this._graphic.addMsg(this._msgNum);
+				this.createPolyomino();
+			}
+		} else if(this._msgNum == 3) {
+			if(hxd.Key.isDown(40)) {
+				this._msgNum++;
+				this._graphic.addMsg(this._msgNum,2.0);
+			}
+		} else if(this._msgNum == 4) this._msgNum++;
+		if(hxd.Key.isReleased(122)) this._graphic.engine.set_fullScreen(true);
+		if(hxd.Key.isReleased(13)) this._restart();
+	}
+	,orbital: function() {
+		this.initAnimPlayer();
+	}
+	,initAnimPlayer: function() {
+		var _g = this;
+		this._playerMesh.set_z(50);
+		this._playerControl.blockControls = true;
+		tweenx909.TweenX.to(this._playerMesh,{ z : 0},null,null,null,null,null,null,null,null,{ fileName : "Game.hx", lineNumber : 142, className : "ld31.Game", methodName : "initAnimPlayer"}).time(0.5).ease(tweenx909.EaseX.circIn).onFinish(function() {
+			_g._playerControl.blockControls = false;
+		});
 	}
 	,changeDir: function(newDir) {
 		this._dir = newDir;
 		this._graphic.rot(this._dir);
-		this._pol.rot(this._dir);
+		if(this._pol != null) this._pol.rot(this._dir);
 	}
 	,mainLoop: function() {
+		this.updateMsg();
 		var dt = haxe.Timer.stamp() - this._t;
 		this._t += dt;
 		this._dt += dt;
@@ -13978,7 +17144,10 @@ ld31.Game.prototype = {
 			this._playerControl.updateCollides(col);
 			if(this._pol != null) this._pol.updateGhost(this._playerControl.x,this._playerControl.y,this._tm);
 			var newDir = ld31.math.Dir.getDir(this._playerControl.x,this._playerControl.y,this._tm,this._dir);
-			if(!(this._dir._dir == newDir._dir)) this.changeDir(newDir);
+			if(!(this._dir._dir == newDir._dir) && haxe.Timer.stamp() - this._lastDirChange > 0.2) {
+				this._lastDirChange = haxe.Timer.stamp();
+				this.changeDir(newDir);
+			}
 			if(this._dt / this._frameTime <= 2) {
 				this._playerMesh.set_x(this._playerControl.x);
 				this._playerMesh.set_y(this._playerControl.y);
@@ -13991,13 +17160,12 @@ ld31.Game.prototype = {
 		}
 	}
 	,createPolyomino: function() {
-		console.log(this._dir);
 		this._pol = new ld31.gameplay.Polyomino(this._graphic.s3d,this._dir);
 		this._pol.onSitting = $bind(this,this.sitPolyomino);
 		this._playerControl.onAction = ($_=this._pol,$bind($_,$_.sit));
 	}
 	,sitPolyomino: function() {
-		this._pol.fixToTilemap(this._tm);
+		this._pol.fixToTilemap(this._tm,this._graphic.map);
 		this._pol = null;
 		this.createPolyomino();
 	}
@@ -14007,7 +17175,23 @@ ld31.Main = function() { };
 $hxClasses["ld31.Main"] = ld31.Main;
 ld31.Main.__name__ = ["ld31","Main"];
 ld31.Main.main = function() {
-	ld31.Main._game = new ld31.Game();
+	ld31.Main.restart();
+};
+ld31.Main.restart = function() {
+	if((function($this) {
+		var $r;
+		if(h3d.Engine.CURRENT == null) throw "no current context, please do this operation after engine init/creation";
+		$r = h3d.Engine.CURRENT;
+		return $r;
+	}(this)) != null) ((function($this) {
+		var $r;
+		if(h3d.Engine.CURRENT == null) throw "no current context, please do this operation after engine init/creation";
+		$r = h3d.Engine.CURRENT;
+		return $r;
+	}(this))).dispose();
+	hxd.Key.initialize();
+	hxd.Res.loader = new hxd.res.Loader(new hxd.res.EmbedFileSystem(haxe.Unserializer.run("oy10:p03add.pngty11:p02jump.pngty11:p01move.pngty12:p04enjoy.pngtg")));
+	ld31.Main._game = new ld31.Game(ld31.Main.restart);
 };
 ld31.gameplay = {};
 ld31.gameplay.PlayerControl = function() {
@@ -14018,6 +17202,8 @@ ld31.gameplay.PlayerControl = function() {
 	this._g = new ld31.math.Vec2d(0,0.02);
 	this._friction = 0.7;
 	this._airSlowler = 0.2;
+	this._lastTOnGround = haxe.Timer.stamp();
+	this.blockControls = false;
 };
 $hxClasses["ld31.gameplay.PlayerControl"] = ld31.gameplay.PlayerControl;
 ld31.gameplay.PlayerControl.__name__ = ["ld31","gameplay","PlayerControl"];
@@ -14057,35 +17243,56 @@ ld31.gameplay.PlayerControl.prototype = {
 				if(this.x - Math.round(this.x) >= 0) onGround = true;
 			}
 		}
+		if(col.on != 0 || c.top != 0 && c.right != 0 && c.bottom != 0 && c.left != 0) {
+			var decal = new h2d.col.Point(j.x,j.y);
+			decal.normalize();
+			this.x += decal.x;
+			this.y += decal.y;
+		}
 		if(dir._dir == ld31.math.Dir.DIR_LEFT || dir._dir == ld31.math.Dir.DIR_RIGHT) this.vy *= this._friction; else this.vx *= this._friction;
 		if(onGround) {
-			if(hxd.Key.isDown(37)) {
-				r.x *= -1;
-				r.y *= -1;
-				this.vx = this.applyMove(this.vx,r.x,0.1,true);
-				this.vy = this.applyMove(this.vy,r.y,0.1,true);
-			} else if(hxd.Key.isDown(39)) {
-				this.vx = this.applyMove(this.vx,r.x,0.1,true);
-				this.vy = this.applyMove(this.vy,r.y,0.1,true);
+			if(!this.blockControls) {
+				if(hxd.Key.isDown(37)) {
+					r.x *= -1;
+					r.y *= -1;
+					this.vx = this.applyMove(this.vx,r.x,0.1,true);
+					this.vy = this.applyMove(this.vy,r.y,0.1,true);
+				} else if(hxd.Key.isDown(39)) {
+					this.vx = this.applyMove(this.vx,r.x,0.1,true);
+					this.vy = this.applyMove(this.vy,r.y,0.1,true);
+				}
+				if(hxd.Key.isDown(32)) {
+					this.vx = this.applyMove(this.vx,j.x,1.0,true);
+					this.vy = this.applyMove(this.vy,j.y,1.0,true);
+				}
 			}
-			if(hxd.Key.isDown(32)) {
-				this.vx = this.applyMove(this.vx,j.x,1.0,true);
-				this.vy = this.applyMove(this.vy,j.y,1.0,true);
-			}
+			this._lastTOnGround = haxe.Timer.stamp();
 		} else {
-			if(hxd.Key.isDown(37)) {
-				r.x *= -1;
-				r.y *= -1;
-				this.vx = this.applyMove(this.vx,r.x,0.1,true);
-				this.vy = this.applyMove(this.vy,r.y,0.1,true);
-			} else if(hxd.Key.isDown(39)) {
-				this.vx = this.applyMove(this.vx,r.x,0.1,true);
-				this.vy = this.applyMove(this.vy,r.y,0.1,true);
+			if(!this.blockControls) {
+				if(hxd.Key.isDown(37)) {
+					r.x *= -1;
+					r.y *= -1;
+					this.vx = this.applyMove(this.vx,r.x,0.1,true);
+					this.vy = this.applyMove(this.vy,r.y,0.1,true);
+				} else if(hxd.Key.isDown(39)) {
+					this.vx = this.applyMove(this.vx,r.x,0.1,true);
+					this.vy = this.applyMove(this.vy,r.y,0.1,true);
+				}
 			}
+			var fG = haxe.Timer.stamp() - this._lastTOnGround;
+			if(fG > 0.5) return this.restartPos();
 			this.vx += g.x;
 			this.vy += g.y;
 		}
-		if(hxd.Key.isDown(40) && this.onAction != null) this.onAction();
+		if(!this.blockControls && hxd.Key.isDown(40) && this.onAction != null) this.onAction();
+	}
+	,restartPos: function() {
+		this.x = Math.floor(6.5);
+		this.y = Math.floor(6.5);
+		this.vx = 0;
+		this.vy = 0;
+		this._lastTOnGround = haxe.Timer.stamp();
+		if(this.onRestart != null) this.onRestart();
 	}
 	,applyMove: function(v0,v1,acc,maximum) {
 		if(maximum == null) maximum = false;
@@ -14107,15 +17314,21 @@ ld31.gameplay.PlayerControl.prototype = {
 };
 ld31.gameplay.Polyomino = function(parent,dir) {
 	this.control = new ld31.gameplay.PolyominoControl();
-	this.graphic = new ld31.graphic.PolyominoObject(this.control,parent);
+	this.graphicFinal = new ld31.graphic.PolyominoObject(this.control,parent);
+	this.graphicFinal.set_visible(false);
+	this.graphicGhost = new ld31.graphic.PolyominoObject(this.control,parent,true);
 	this._sitTime = false;
 	this.rot(dir);
 };
 $hxClasses["ld31.gameplay.Polyomino"] = ld31.gameplay.Polyomino;
 ld31.gameplay.Polyomino.__name__ = ["ld31","gameplay","Polyomino"];
 ld31.gameplay.Polyomino.prototype = {
-	fixToTilemap: function(tm) {
-		tm.addPolyomino(this.control.form,this._sitPlace[0],this._sitPlace[1]);
+	fixToTilemap: function(tm,mm) {
+		tm.addPolyomino(this.control.form,this._sitPlace[0],this._sitPlace[1],mm);
+		this.graphicGhost.set_visible(false);
+		this.graphicGhost.remove();
+		this.graphicFinal.set_visible(false);
+		this.graphicFinal.remove();
 	}
 	,rot: function(dir) {
 		if(this._sitTime) return;
@@ -14123,27 +17336,27 @@ ld31.gameplay.Polyomino.prototype = {
 		this._xi = this._yi = -100;
 	}
 	,sit: function() {
-		if(this._sitTime) return;
+		if(this._sitTime || this._sitPlace == null) return;
 		this._sitTime = true;
+		this.graphicFinal.set_visible(true);
 		var x0 = this._sitPlace[0];
 		var y0 = this._sitPlace[1];
 		var dir = new ld31.math.Dir(this._dirSitPlace);
-		if(dir._dir == ld31.math.Dir.DIR_UP) y0 -= 14; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) x0 += 14; else if(dir._dir == ld31.math.Dir.DIR_DOWN) y0 += 14; else if(dir._dir == ld31.math.Dir.DIR_LEFT) x0 -= 14;
-		this.graphic.setPos(x0,y0,0);
-		tweenx909.TweenX.to(this.graphic,{ x : this._sitPlace[0], y : this._sitPlace[1]},null,null,null,null,null,null,null,null,{ fileName : "Polyomino.hx", lineNumber : 68, className : "ld31.gameplay.Polyomino", methodName : "sit"}).time(1).onFinish(this.onSitting);
+		if(dir._dir == ld31.math.Dir.DIR_UP) y0 -= 13; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) x0 += 13; else if(dir._dir == ld31.math.Dir.DIR_DOWN) y0 += 13; else if(dir._dir == ld31.math.Dir.DIR_LEFT) x0 -= 13;
+		this.graphicFinal.setPos(x0,y0,0);
+		tweenx909.TweenX.to(this.graphicFinal,{ x : this._sitPlace[0], y : this._sitPlace[1]},null,null,null,null,null,null,null,null,{ fileName : "Polyomino.hx", lineNumber : 83, className : "ld31.gameplay.Polyomino", methodName : "sit"}).time(0.25).onFinish(this.onSitting);
 	}
 	,updateGhost: function(x,y,tm) {
 		if(this._sitTime) return;
 		var xi = Math.round(x - (this.control.form[0].length - 1) * 0.5);
 		var yi = Math.round(y - (this.control.form.length - 1) * 0.5);
-		if(xi == this._xi && yi == this._yi) return;
 		this._xi = xi;
 		this._yi = yi;
 		this._sitPlace = tm.getPosPolContact(this.control.form,this._dir,xi,yi);
 		this._dirSitPlace = this._dir._dir;
-		if(this._sitPlace == null) this.graphic.set_visible(false); else {
-			this.graphic.set_visible(true);
-			this.graphic.setPos(this._sitPlace[0],this._sitPlace[1],0);
+		if(this._sitPlace == null) this.graphicGhost.set_visible(false); else {
+			if(!((this.graphicGhost.flags & 2) != 0)) this.graphicGhost.set_visible(true);
+			this.graphicGhost.setPos(this._sitPlace[0],this._sitPlace[1],0);
 		}
 	}
 	,__class__: ld31.gameplay.Polyomino
@@ -14191,26 +17404,27 @@ ld31.gameplay.Tilemap = function() {
 $hxClasses["ld31.gameplay.Tilemap"] = ld31.gameplay.Tilemap;
 ld31.gameplay.Tilemap.__name__ = ["ld31","gameplay","Tilemap"];
 ld31.gameplay.Tilemap.getNeutralPos = function() {
-	var mX = Math.floor(7.);
-	var mY = Math.floor(7.);
+	var mX = Math.floor(6.5);
+	var mY = Math.floor(6.5);
 	return new ld31.math.Vec2d(mX,mY);
 };
 ld31.gameplay.Tilemap.getEmtpyGrid = function() {
 	var a = [];
-	var _g = 0;
-	while(_g < 14) {
-		var i = _g++;
+	var _g1 = 0;
+	var _g = 23;
+	while(_g1 < _g) {
+		var i = _g1++;
 		a[i] = [];
-		var _g1 = 0;
-		while(_g1 < 14) {
-			var j = _g1++;
+		var _g3 = 0;
+		var _g2 = 23;
+		while(_g3 < _g2) {
+			var j = _g3++;
 			a[i][j] = 0;
 		}
 	}
-	var mX = Math.floor(7.);
-	var mY = Math.floor(7.);
+	var mX = Math.floor(6.5) + 5;
+	var mY = Math.floor(6.5) + 5;
 	a[mX][mY] = 1;
-	a[mX][mY + 1] = 1;
 	return a;
 };
 ld31.gameplay.Tilemap.prototype = {
@@ -14220,10 +17434,10 @@ ld31.gameplay.Tilemap.prototype = {
 		this.bounds.xMax = -100;
 		this.bounds.yMax = -100;
 		var _g = 0;
-		while(_g < 14) {
+		while(_g < 13) {
 			var j = _g++;
 			var _g1 = 0;
-			while(_g1 < 14) {
+			while(_g1 < 13) {
 				var i = _g1++;
 				if(this.get(i,j) != 0) {
 					if(j < this.bounds.yMin) this.bounds.yMin = j;
@@ -14237,25 +17451,29 @@ ld31.gameplay.Tilemap.prototype = {
 	}
 	,getPosPolContact: function(form,dir,x,y) {
 		if(dir._dir == ld31.math.Dir.DIR_UP) {
-			var _g = -form.length;
-			while(_g < 14) {
-				var j = _g++;
+			var min = -(form.length + 5);
+			var _g1 = min;
+			var _g = 18;
+			while(_g1 < _g) {
+				var j = _g1++;
 				if(this.hasPolContact(form,x,j)) return [x,j - 1];
 			}
 		} else if(dir._dir == ld31.math.Dir.DIR_DOWN) {
-			var j1 = 13;
-			var min = -form.length - 1;
-			while(--j1 > min) if(this.hasPolContact(form,x,j1)) return [x,j1 + 1];
+			var j1 = 18;
+			var min1 = -(form.length + 5);
+			while(--j1 > min1) if(this.hasPolContact(form,x,j1)) return [x,j1 + 1];
 		} else if(dir._dir == ld31.math.Dir.DIR_LEFT) {
-			var _g1 = -form[0].length;
-			while(_g1 < 14) {
-				var i = _g1++;
+			var min2 = -(form[0].length + 5);
+			var _g11 = -form[0].length;
+			var _g2 = 18;
+			while(_g11 < _g2) {
+				var i = _g11++;
 				if(this.hasPolContact(form,i,y)) return [i - 1,y];
 			}
 		} else if(dir._dir == ld31.math.Dir.DIR_RIGHT) {
-			var i1 = 13;
-			var min1 = -form[0].length - 1;
-			while(--i1 > min1) if(this.hasPolContact(form,i1,y)) return [i1 + 1,y];
+			var i1 = 18;
+			var min3 = -(form[0].length + 5);
+			while(--i1 > min3) if(this.hasPolContact(form,i1,y)) return [i1 + 1,y];
 		}
 		return null;
 	}
@@ -14264,36 +17482,25 @@ ld31.gameplay.Tilemap.prototype = {
 		var _g = y + form.length;
 		while(_g1 < _g) {
 			var j = _g1++;
-			if(j > -1 && j < this._staticTypes.length) {
-				var _g3 = x;
-				var _g2 = x + form[0].length;
-				while(_g3 < _g2) {
-					var i = _g3++;
-					if(i > -1 && i < this._staticTypes[j].length) {
-						if(this._staticTypes[j][i] != 0 && form[j - y][i - x] != 0) return true;
-					}
-				}
+			var _g3 = x;
+			var _g2 = x + form[0].length;
+			while(_g3 < _g2) {
+				var i = _g3++;
+				if(this.get(i,j) != 0 && form[j - y][i - x] != 0) return true;
 			}
 		}
 		return false;
 	}
-	,addPolyomino: function(form,x,y) {
+	,addPolyomino: function(form,x,y,mm) {
 		var _g1 = y;
 		var _g = y + form.length;
 		while(_g1 < _g) {
 			var j = _g1++;
-			if(j > -1 && j < this._staticTypes.length) {
-				var _g3 = x;
-				var _g2 = x + form[0].length;
-				while(_g3 < _g2) {
-					var i = _g3++;
-					if(i > -1 && i < this._staticTypes[j].length) {
-						if(this._staticTypes[j][i] == 0 && form[j - y][i - x] != 0) {
-							console.log("ok");
-							this._staticTypes[j][i] = form[j - y][i - x];
-						}
-					}
-				}
+			var _g3 = x;
+			var _g2 = x + form[0].length;
+			while(_g3 < _g2) {
+				var i = _g3++;
+				if(this.get(i,j) == 0 && form[j - y][i - x] != 0) this.set(i,j,form[j - y][i - x],mm);
 			}
 		}
 		this.updateBB();
@@ -14307,92 +17514,113 @@ ld31.gameplay.Tilemap.prototype = {
 		c.left = this.get(x - 1,y);
 		return c;
 	}
+	,set: function(x,y,type,mm) {
+		if(x > -1 && y > -1 && x < 13 && y < 13) mm.addSquare(type,x,y); else mm.addSquare(6,x,y);
+		x += 5;
+		y += 5;
+		if(x > -1 && y > -1 && x < this._staticTypes[0].length && y < this._staticTypes.length) this._staticTypes[y][x] = type;
+	}
 	,get: function(x,y) {
+		x += 5;
+		y += 5;
 		var rep;
-		if(x > -1 && y > -1 && x < 14 && y < 14) rep = this._staticTypes[y][x]; else rep = 0;
+		if(x > -1 && y > -1 && x < this._staticTypes[0].length && y < this._staticTypes.length) rep = this._staticTypes[y][x]; else rep = 0;
 		return rep;
 	}
 	,__class__: ld31.gameplay.Tilemap
 };
 ld31.graphic = {};
-ld31.graphic.CubeMesh = function(type,parent) {
-	h3d.scene.Mesh.call(this,new ld31.graphic.CubePrim(),ld31.graphic.CubeMesh.getMat(type),parent);
+ld31.graphic.CubeMesh = function(type,parent,ghost) {
+	if(ghost == null) ghost = false;
+	h3d.scene.Mesh.call(this,new ld31.graphic.CubePrim(),ld31.graphic.CubeMesh.getMat(type,ghost),parent);
 };
 $hxClasses["ld31.graphic.CubeMesh"] = ld31.graphic.CubeMesh;
 ld31.graphic.CubeMesh.__name__ = ["ld31","graphic","CubeMesh"];
-ld31.graphic.CubeMesh.getMat = function(type) {
-	if(type == 2) {
-		if(ld31.graphic.CubeMesh._matR == null) {
-			ld31.graphic.CubeMesh._matR = new h3d.mat.MeshMaterial();
-			ld31.graphic.CubeMesh._matR.mshader.color__.setColor(16711833,null);
-		}
-		return ld31.graphic.CubeMesh._matR;
-	} else if(type == 3) {
-		if(ld31.graphic.CubeMesh._matG == null) {
-			ld31.graphic.CubeMesh._matG = new h3d.mat.MeshMaterial();
-			ld31.graphic.CubeMesh._matG.mshader.color__.setColor(10092288,null);
-		}
-		return ld31.graphic.CubeMesh._matG;
-	} else if(type == 4) {
-		if(ld31.graphic.CubeMesh._matB == null) {
-			ld31.graphic.CubeMesh._matB = new h3d.mat.MeshMaterial();
-			ld31.graphic.CubeMesh._matB.mshader.color__.setColor(39423,null);
-		}
-		return ld31.graphic.CubeMesh._matB;
+ld31.graphic.CubeMesh.getMatBlack = function() {
+	if(ld31.graphic.CubeMesh._MAT_BLACK == null) {
+		ld31.graphic.CubeMesh._MAT_BLACK = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_BLACK.mshader.color__.setColor(0,null);
 	}
-	if(ld31.graphic.CubeMesh._matN == null) {
-		ld31.graphic.CubeMesh._matN = new h3d.mat.MeshMaterial();
-		ld31.graphic.CubeMesh._matN.mshader.color__.setColor(6710886,null);
+	return ld31.graphic.CubeMesh._MAT_BLACK;
+};
+ld31.graphic.CubeMesh.getMatR = function() {
+	if(ld31.graphic.CubeMesh._MAT_R == null) {
+		ld31.graphic.CubeMesh._MAT_R = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_R.mshader.color__.setColor(16711833,null);
 	}
-	return ld31.graphic.CubeMesh._matN;
+	return ld31.graphic.CubeMesh._MAT_R;
+};
+ld31.graphic.CubeMesh.getMatG = function() {
+	if(ld31.graphic.CubeMesh._MAT_G == null) {
+		ld31.graphic.CubeMesh._MAT_G = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_G.mshader.color__.setColor(10092288,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_G;
+};
+ld31.graphic.CubeMesh.getMatB = function() {
+	if(ld31.graphic.CubeMesh._MAT_B == null) {
+		ld31.graphic.CubeMesh._MAT_B = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_B.mshader.color__.setColor(39423,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_B;
+};
+ld31.graphic.CubeMesh.getMatOut = function() {
+	if(ld31.graphic.CubeMesh._MAT_OUT == null) {
+		ld31.graphic.CubeMesh._MAT_OUT = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_OUT.passes.addShader(new ld31.graphic.OutShader());
+		ld31.graphic.CubeMesh._MAT_OUT.mshader.color__.setColor(10027263,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_OUT;
+};
+ld31.graphic.CubeMesh.getMatRG = function() {
+	if(ld31.graphic.CubeMesh._MAT_R_G == null) {
+		ld31.graphic.CubeMesh._MAT_R_G = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_R_G.passes.addShader(new ld31.graphic.GhostShader());
+		ld31.graphic.CubeMesh._MAT_R_G.mshader.color__.setColor(16711833,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_R_G;
+};
+ld31.graphic.CubeMesh.getMatGG = function() {
+	if(ld31.graphic.CubeMesh._MAT_G_G == null) {
+		ld31.graphic.CubeMesh._MAT_G_G = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_G_G.passes.addShader(new ld31.graphic.GhostShader());
+		ld31.graphic.CubeMesh._MAT_G_G.mshader.color__.setColor(10092288,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_G_G;
+};
+ld31.graphic.CubeMesh.getMatBG = function() {
+	if(ld31.graphic.CubeMesh._MAT_B_G == null) {
+		ld31.graphic.CubeMesh._MAT_B_G = new h3d.mat.MeshMaterial();
+		ld31.graphic.CubeMesh._MAT_B_G.passes.addShader(new ld31.graphic.GhostShader());
+		ld31.graphic.CubeMesh._MAT_B_G.mshader.color__.setColor(39423,null);
+	}
+	return ld31.graphic.CubeMesh._MAT_B_G;
+};
+ld31.graphic.CubeMesh.getMat = function(type,ghost) {
+	if(type == 2 && ghost) return ld31.graphic.CubeMesh.getMatRG();
+	if(type == 2) return ld31.graphic.CubeMesh.getMatR();
+	if(type == 3 && ghost) return ld31.graphic.CubeMesh.getMatGG();
+	if(type == 3) return ld31.graphic.CubeMesh.getMatG();
+	if(type == 4 && ghost) return ld31.graphic.CubeMesh.getMatBG();
+	if(type == 4) return ld31.graphic.CubeMesh.getMatB();
+	return ld31.graphic.CubeMesh.getMatBlack();
 };
 ld31.graphic.CubeMesh.__super__ = h3d.scene.Mesh;
 ld31.graphic.CubeMesh.prototype = $extend(h3d.scene.Mesh.prototype,{
 	__class__: ld31.graphic.CubeMesh
 });
 ld31.graphic.CubePrim = function() {
-	var z = 0.5;
-	var p = [new h3d.col.Point(-.5,-.5,-z),new h3d.col.Point(.5,-.5,-z),new h3d.col.Point(-.5,.5,-z),new h3d.col.Point(-.5,-.5,0),new h3d.col.Point(.5,.5,-z),new h3d.col.Point(.5,-.5,0),new h3d.col.Point(-.5,.5,0),new h3d.col.Point(.5,.5,0)];
+	var p = [new h3d.col.Point(-.5,-.5,0),new h3d.col.Point(.5,-.5,0),new h3d.col.Point(-.5,.5,0),new h3d.col.Point(.5,.5,0)];
 	var idx;
 	var this1;
 	this1 = new Array(0);
 	idx = this1;
 	idx.push(0);
 	idx.push(1);
-	idx.push(5);
-	idx.push(0);
-	idx.push(5);
-	idx.push(3);
+	idx.push(2);
+	idx.push(2);
 	idx.push(1);
-	idx.push(4);
-	idx.push(7);
-	idx.push(1);
-	idx.push(7);
-	idx.push(5);
 	idx.push(3);
-	idx.push(5);
-	idx.push(7);
-	idx.push(3);
-	idx.push(7);
-	idx.push(6);
-	idx.push(0);
-	idx.push(6);
-	idx.push(2);
-	idx.push(0);
-	idx.push(3);
-	idx.push(6);
-	idx.push(2);
-	idx.push(7);
-	idx.push(4);
-	idx.push(2);
-	idx.push(6);
-	idx.push(7);
-	idx.push(0);
-	idx.push(4);
-	idx.push(1);
-	idx.push(0);
-	idx.push(2);
-	idx.push(4);
 	h3d.prim.Polygon.call(this,p,idx);
 };
 $hxClasses["ld31.graphic.CubePrim"] = ld31.graphic.CubePrim;
@@ -14401,10 +17629,107 @@ ld31.graphic.CubePrim.__super__ = h3d.prim.Polygon;
 ld31.graphic.CubePrim.prototype = $extend(h3d.prim.Polygon.prototype,{
 	__class__: ld31.graphic.CubePrim
 });
+ld31.graphic.GhostShader = function() {
+	this.color__ = new h3d.Vector();
+	hxsl.Shader.call(this);
+};
+$hxClasses["ld31.graphic.GhostShader"] = ld31.graphic.GhostShader;
+ld31.graphic.GhostShader.__name__ = ["ld31","graphic","GhostShader"];
+ld31.graphic.GhostShader.__super__ = hxsl.Shader;
+ld31.graphic.GhostShader.prototype = $extend(hxsl.Shader.prototype,{
+	updateConstants: function(globals) {
+		this.constBits = 0;
+		this.updateConstantsFinal(globals);
+	}
+	,getParamValue: function(index) {
+		switch(index) {
+		case 0:
+			return this.color__;
+		default:
+		}
+		return null;
+	}
+	,__class__: ld31.graphic.GhostShader
+});
+ld31.graphic.MapObject = function(parent) {
+	h3d.scene.Object.call(this,parent);
+	this.rP = new ld31.graphic.MapPrim();
+	this.rM = new h3d.scene.Mesh(this.rP,ld31.graphic.CubeMesh.getMatR(),parent);
+	this.gP = new ld31.graphic.MapPrim();
+	this.gM = new h3d.scene.Mesh(this.gP,ld31.graphic.CubeMesh.getMatG(),parent);
+	this.bP = new ld31.graphic.MapPrim();
+	this.bM = new h3d.scene.Mesh(this.bP,ld31.graphic.CubeMesh.getMatB(),parent);
+	this.outP = new ld31.graphic.MapPrim();
+	this.outM = new h3d.scene.Mesh(this.outP,ld31.graphic.CubeMesh.getMatOut(),parent);
+};
+$hxClasses["ld31.graphic.MapObject"] = ld31.graphic.MapObject;
+ld31.graphic.MapObject.__name__ = ["ld31","graphic","MapObject"];
+ld31.graphic.MapObject.__super__ = h3d.scene.Object;
+ld31.graphic.MapObject.prototype = $extend(h3d.scene.Object.prototype,{
+	addSquare: function(type,x,y) {
+		if(type == 2) this.rP.addSquare(x,y); else if(type == 3) this.gP.addSquare(x,y); else if(type == 4) this.bP.addSquare(x,y); else if(type == 6) this.outP.addSquare(x,y);
+	}
+	,__class__: ld31.graphic.MapObject
+});
+ld31.graphic.MapPrim = function() {
+	h3d.prim.Polygon.call(this,[]);
+};
+$hxClasses["ld31.graphic.MapPrim"] = ld31.graphic.MapPrim;
+ld31.graphic.MapPrim.__name__ = ["ld31","graphic","MapPrim"];
+ld31.graphic.MapPrim.__super__ = h3d.prim.Polygon;
+ld31.graphic.MapPrim.prototype = $extend(h3d.prim.Polygon.prototype,{
+	addSquare: function(x,y) {
+		var iP = this.points.length;
+		this.points.push(new h3d.col.Point(x - .5,y - .5,0));
+		this.points.push(new h3d.col.Point(x + .5,y - .5,0));
+		this.points.push(new h3d.col.Point(x - .5,y + .5,0));
+		this.points.push(new h3d.col.Point(x + .5,y + .5,0));
+		if(this.idx == null) {
+			var this1;
+			this1 = new Array(0);
+			this.idx = this1;
+		}
+		this.idx.push(iP);
+		this.idx.push(iP + 1);
+		this.idx.push(iP + 2);
+		this.idx.push(iP + 2);
+		this.idx.push(iP + 1);
+		this.idx.push(iP + 3);
+		this.alloc((function($this) {
+			var $r;
+			if(h3d.Engine.CURRENT == null) throw "no current context, please do this operation after engine init/creation";
+			$r = h3d.Engine.CURRENT;
+			return $r;
+		}(this)));
+	}
+	,__class__: ld31.graphic.MapPrim
+});
+ld31.graphic.OutShader = function() {
+	this.color__ = new h3d.Vector();
+	hxsl.Shader.call(this);
+};
+$hxClasses["ld31.graphic.OutShader"] = ld31.graphic.OutShader;
+ld31.graphic.OutShader.__name__ = ["ld31","graphic","OutShader"];
+ld31.graphic.OutShader.__super__ = hxsl.Shader;
+ld31.graphic.OutShader.prototype = $extend(hxsl.Shader.prototype,{
+	updateConstants: function(globals) {
+		this.constBits = 0;
+		this.updateConstantsFinal(globals);
+	}
+	,getParamValue: function(index) {
+		switch(index) {
+		case 0:
+			return this.color__;
+		default:
+		}
+		return null;
+	}
+	,__class__: ld31.graphic.OutShader
+});
 ld31.graphic.PlayerMesh = function(parent) {
 	var prim = new h3d.prim.GeoSphere(3);
 	var mat = new h3d.mat.MeshMaterial();
-	mat.mshader.color__.setColor(0,null);
+	mat.mshader.color__.setColor(6710886,null);
 	h3d.scene.Mesh.call(this,prim,mat,parent);
 };
 $hxClasses["ld31.graphic.PlayerMesh"] = ld31.graphic.PlayerMesh;
@@ -14413,7 +17738,8 @@ ld31.graphic.PlayerMesh.__super__ = h3d.scene.Mesh;
 ld31.graphic.PlayerMesh.prototype = $extend(h3d.scene.Mesh.prototype,{
 	__class__: ld31.graphic.PlayerMesh
 });
-ld31.graphic.PolyominoObject = function(pc,parent) {
+ld31.graphic.PolyominoObject = function(pc,parent,ghost) {
+	if(ghost == null) ghost = false;
 	h3d.scene.Object.call(this,parent);
 	var f = pc.form;
 	var _g1 = 0;
@@ -14425,7 +17751,7 @@ ld31.graphic.PolyominoObject = function(pc,parent) {
 		while(_g3 < _g2) {
 			var i = _g3++;
 			if(f[j][i] == 0) continue;
-			var c = new ld31.graphic.CubeMesh(pc.color,this);
+			var c = new ld31.graphic.CubeMesh(pc.color,this,ghost);
 			c.x = i;
 			c.flags |= 1;
 			true;
@@ -14455,7 +17781,7 @@ ld31.graphic.Render.prototype = {
 	rot: function(dir) {
 		var newPos = { x : 0, y : 0, z : 0};
 		if(dir._dir == ld31.math.Dir.DIR_UP) newPos.y = -1; else if(dir._dir == ld31.math.Dir.DIR_RIGHT) newPos.x = 1; else if(dir._dir == ld31.math.Dir.DIR_DOWN) newPos.y = 1; else if(dir._dir == ld31.math.Dir.DIR_LEFT) newPos.x = -1;
-		tweenx909.TweenX.to(this.s3d.camera.up,newPos,null,null,null,null,null,null,null,null,{ fileName : "Render.hx", lineNumber : 45, className : "ld31.graphic.Render", methodName : "rot"}).time(0.5).ease(tweenx909.EaseX.circOut);
+		tweenx909.TweenX.to(this.s3d.camera.up,newPos,null,null,null,null,null,null,null,null,{ fileName : "Render.hx", lineNumber : 52, className : "ld31.graphic.Render", methodName : "rot"}).time(0.5).ease(tweenx909.EaseX.circOut);
 	}
 	,onResize: function() {
 	}
@@ -14467,21 +17793,84 @@ ld31.graphic.Render.prototype = {
 		};
 		this.s3d = new h3d.scene.Scene();
 		this.s2d = new h2d.Scene();
+		this.s2d.setFixedSize(1280,720);
 		this.s3d.addPass(this.s2d);
-		this.engine.backgroundColor = -1;
+		this.engine.backgroundColor = 0;
 		var p = ld31.gameplay.Tilemap.getNeutralPos();
 		this.s3d.camera.zoom = 4;
 		this.s3d.camera.up.set(0.,-1.,0.,null);
-		this.s3d.camera.pos.set(p.x,p.y,14. * this.s3d.camera.zoom,null);
+		this.s3d.camera.pos.set(p.x,p.y,13. * this.s3d.camera.zoom,null);
 		this.s3d.camera.target.set(p.x,p.y,null,null);
+		var bg = new ld31.graphic.TimerObject(this.s3d);
+		bg.scaleX = 13;
+		bg.flags |= 1;
+		true;
+		13;
+		bg.scaleY = 13;
+		bg.flags |= 1;
+		true;
+		13;
+		bg.setPos(Math.floor(6.5),Math.floor(6.5),-0.01);
+		this.map = new ld31.graphic.MapObject(this.s3d);
 		this._onInit();
-		hxd.Key.initialize();
 	}
 	,refresh: function() {
 		this.engine.render(this.s3d);
 	}
+	,addMsg: function(num,time) {
+		if(time == null) time = -1.0;
+		var _g = this;
+		if(this._msg != null) this._msg.remove();
+		if(this._tile != null) this._tile.dispose();
+		if(num == 1) this._tile = hxd.Res.loader.loadImage("p01move.png").toTile(); else if(num == 2) this._tile = hxd.Res.loader.loadImage("p02jump.png").toTile(); else if(num == 3) this._tile = hxd.Res.loader.loadImage("p03add.png").toTile(); else if(num == 4) this._tile = hxd.Res.loader.loadImage("p04enjoy.png").toTile(); else return;
+		this._tile = this._tile.center();
+		this._msg = new h2d.Bitmap(this._tile,this.s2d);
+		this._msg.set_x(640.);
+		this._msg.set_y(503.99999999999994);
+		if(time > 0) tweenx909.TweenX.to(this,{ },null,null,null,null,null,null,null,null,{ fileName : "Render.hx", lineNumber : 137, className : "ld31.graphic.Render", methodName : "addMsg"}).time(2).onFinish(function() {
+			_g.addMsg(-1);
+		});
+	}
 	,__class__: ld31.graphic.Render
 };
+ld31.graphic.TimerObject = function(parent) {
+	h3d.scene.Object.call(this,parent);
+	var prim = new ld31.graphic.TimerPrim();
+	var c1 = new h3d.mat.MeshMaterial();
+	c1.mshader.color__.setColor(16777215,null);
+	var c2 = new h3d.mat.MeshMaterial();
+	c2.mshader.color__.setColor(13421772,null);
+	var m1 = new h3d.scene.Mesh(prim,c1,this);
+	var m2 = new h3d.scene.Mesh(prim,c2,this);
+	m2.setRotate(.0,.0,1.5707963267948966);
+};
+$hxClasses["ld31.graphic.TimerObject"] = ld31.graphic.TimerObject;
+ld31.graphic.TimerObject.__name__ = ["ld31","graphic","TimerObject"];
+ld31.graphic.TimerObject.__super__ = h3d.scene.Object;
+ld31.graphic.TimerObject.prototype = $extend(h3d.scene.Object.prototype,{
+	__class__: ld31.graphic.TimerObject
+});
+ld31.graphic.TimerPrim = function() {
+	var z = 0.5;
+	var p = [new h3d.col.Point(-.5,-.5,0),new h3d.col.Point(.0,.0,0),new h3d.col.Point(-.5,.5,0),new h3d.col.Point(.5,-.5,0),new h3d.col.Point(.5,.5,0)];
+	var idx;
+	var this1;
+	this1 = new Array(0);
+	idx = this1;
+	idx.push(0);
+	idx.push(1);
+	idx.push(2);
+	idx.push(3);
+	idx.push(4);
+	idx.push(1);
+	h3d.prim.Polygon.call(this,p,idx);
+};
+$hxClasses["ld31.graphic.TimerPrim"] = ld31.graphic.TimerPrim;
+ld31.graphic.TimerPrim.__name__ = ["ld31","graphic","TimerPrim"];
+ld31.graphic.TimerPrim.__super__ = h3d.prim.Polygon;
+ld31.graphic.TimerPrim.prototype = $extend(h3d.prim.Polygon.prototype,{
+	__class__: ld31.graphic.TimerPrim
+});
 ld31.math = {};
 ld31.math.Bounds = function() {
 };
@@ -14578,6 +17967,9 @@ $hxClasses["tweenx909.EaseX"] = tweenx909.EaseX;
 tweenx909.EaseX.__name__ = ["tweenx909","EaseX"];
 tweenx909.EaseX.linear = function(t) {
 	return t;
+};
+tweenx909.EaseX.circIn = function(t) {
+	return 1 - Math.sqrt(1 - t * t);
 };
 tweenx909.EaseX.circOut = function(t) {
 	return Math.sqrt(t * (2 - t));
@@ -15797,6 +19189,12 @@ var Bool = $hxClasses.Bool = Boolean;
 Bool.__ename__ = ["Bool"];
 var Class = $hxClasses.Class = { __name__ : ["Class"]};
 var Enum = { };
+haxe.Resource.content = [{ name : "R_p04enjoy_png", data : "iVBORw0KGgoAAAANSUhEUgAAAgAAAACACAIAAADyNUZcAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpBQTNGNTE0RDI4N0VFNDExQkU5QjlGRDdFMjlBN0JGNSIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo3OURDNjM4RTdFMkMxMUU0OTFBQUI5MzExRTFFRDIxQiIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo3OURDNjM4RDdFMkMxMUU0OTFBQUI5MzExRTFFRDIxQiIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M2IChXaW5kb3dzKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkIxM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkFBM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1Ii8+IDwvcmRmOkRlc2NyaXB0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"},{ name : "R_p02jump_png", data : "iVBORw0KGgoAAAANSUhEUgAAAgAAAACACAIAAADyNUZcAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpBQTNGNTE0RDI4N0VFNDExQkU5QjlGRDdFMjlBN0JGNSIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo2RjY2MkE2NjdFMkMxMUU0QjI4MkVEOTUzMjVEOTJEMiIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo2RjY2MkE2NTdFMkMxMUU0QjI4MkVEOTUzMjVEOTJEMiIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M2IChXaW5kb3dzKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkIxM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkFBM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1Ii8+IDwvcmRmOkRlc2NyaXB0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"},{ name : "R_p03add_png", data : "iVBORw0KGgoAAAANSUhEUgAAAgAAAACACAIAAADyNUZcAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpBQTNGNTE0RDI4N0VFNDExQkU5QjlGRDdFMjlBN0JGNSIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo3NDVFMzYwNzdFMkMxMUU0OUU2QkYyNDE1MjlCRTU4OCIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo3NDVFMzYwNjdFMkMxMUU0OUU2QkYyNDE1MjlCRTU4OCIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M2IChXaW5kb3dzKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkIxM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkFBM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1Ii8+IDwvcmRmOkRlc2NyaXB0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"},{ name : "R_p01move_png", data : "iVBORw0KGgoAAAANSUhEUgAAAgAAAACACAIAAADyNUZcAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA2ZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpBQTNGNTE0RDI4N0VFNDExQkU5QjlGRDdFMjlBN0JGNSIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo2QTAzMjY2NTdFMkMxMUU0QTEwM0E0OEIwQTEzNjY2MSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo2QTAzMjY2NDdFMkMxMUU0QTEwM0E0OEIwQTEzNjY2MSIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M2IChXaW5kb3dzKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOkIxM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOkFBM0Y1MTREMjg3RUU0MTFCRTlCOUZEN0UyOUE3QkY1Ii8+IDwvcmRmOkRlc2NyaXB0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"}];
+format.tools.InflateImpl.LEN_EXTRA_BITS_TBL = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0,-1,-1];
+format.tools.InflateImpl.LEN_BASE_VAL_TBL = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+format.tools.InflateImpl.DIST_EXTRA_BITS_TBL = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13,-1,-1];
+format.tools.InflateImpl.DIST_BASE_VAL_TBL = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+format.tools.InflateImpl.CODE_LENGTHS_POS = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
 h3d.Buffer.GUID = 0;
 h3d.impl.GlDriver.TFILTERS = [[[9728,9728],[9729,9729]],[[9728,9984],[9729,9985]],[[9728,9986],[9729,9987]]];
 h3d.impl.GlDriver.TWRAP = [33071,10497];
@@ -15807,21 +19205,25 @@ h3d.impl.GlDriver.OP = [32774,32778,32779];
 h3d.impl.MemoryManager.ALL_FLAGS = Type.allEnums(h3d.BufferFlag);
 h3d.mat.Texture.UID = 0;
 h3d.mat.Texture.COLOR_CACHE = new haxe.ds.IntMap();
-h3d.pass._Border.BorderShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-115ghR16i-113gR16i-114gy1:poy4:filey70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fpass%2FBorder.hxy3:maxi295y3:mini280gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i302R21i298gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29hR16i-111gR16i-112gR17oR18R19R20i317R21i303gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i320R21i319gR22jR11:3:0goR3jR4:0:1jR25:3:1i1R17oR18R19R20i323R21i322gR22r41ghR17oR18R19R20i324R21i298gR22jR11:5:2i4r11gR17oR18R19R20i324R21i280gR22r12ghR17oR18R19R20i330R21i274gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr53ghR16i-116gR29r53goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R19R20i374R21i362gR22r16goR3jR4:1:1oR6jR7:2:0R8R15R10jR11:5:2i4r11R16i-110gR17oR18R19R20i382R21i377gR22r72gR17oR18R19R20i382R21i362gR22r16ghR17oR18R19R20i388R21i356gR22r53gR6jR26:1:0R27oR6r56R8y8:fragmentR10jR11:13:1aoR1ahR29r53ghR16i-117gR29r53ghR8y29:h3d.pass._Border.BorderShadery4:varsar55r80r13r32r70hg";
+h3d.pass._Border.BorderShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-147ghR16i-145gR16i-146gy1:poy4:filey70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fpass%2FBorder.hxy3:maxi295y3:mini280gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i302R21i298gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29hR16i-143gR16i-144gR17oR18R19R20i317R21i303gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i320R21i319gR22jR11:3:0goR3jR4:0:1jR25:3:1i1R17oR18R19R20i323R21i322gR22r41ghR17oR18R19R20i324R21i298gR22jR11:5:2i4r11gR17oR18R19R20i324R21i280gR22r12ghR17oR18R19R20i330R21i274gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr53ghR16i-148gR29r53goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R19R20i374R21i362gR22r16goR3jR4:1:1oR6jR7:2:0R8R15R10jR11:5:2i4r11R16i-142gR17oR18R19R20i382R21i377gR22r72gR17oR18R19R20i382R21i362gR22r16ghR17oR18R19R20i388R21i356gR22r53gR6jR26:1:0R27oR6r56R8y8:fragmentR10jR11:13:1aoR1ahR29r53ghR16i-149gR29r53ghR8y29:h3d.pass._Border.BorderShadery4:varsar55r80r13r32r70hg";
 h3d.pass.Params.defaultKillAlphaThreshold = 0.5;
 h3d.shader.AmbientLight.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:lightColory4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-30gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FAmbientLight.hxy3:maxi316y3:mini306gy1:tr12goR3jR4:1:1oR6jR7:0:0R8y12:ambientLightR10jR11:5:2i3r11y6:parentoR6r17R8y6:globalR10jR11:12:1ar16oR6r17R8y16:perPixelLightingR10jR11:2:0R21r19y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-27ghR13i-25gR13i-26gR14oR15R16R17i338R18i319gR19r18gR14oR15R16R17i338R18i306gR19r12ghR14oR15R16R17i344R18i300gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahy3:retr32ghR13i-31gR29r32goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6r10R8y15:lightPixelColorR10jR11:5:2i3r11R13i-29gR14oR15R16R17i399R18i384gR19r47goR3jR4:1:1r16R14oR15R16R17i421R18i402gR19r18gR14oR15R16R17i421R18i384gR19r47ghR14oR15R16R17i427R18i378gR19r32gR6jR26:1:0R27oR6r35R8y16:__init__fragmentR10jR11:13:1aoR1ahR29r32ghR13i-32gR29r32goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:6:2jy15:haxe.macro.Unop:2:0oR3jR4:1:1r21R14oR15R16R17i485R18i462gR19r22gR14oR15R16R17i485R18i461gR19r22goR3jR4:5:3jR5:20:1jR5:1:0oR3jR4:9:2oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-28gR14oR15R16R17i498R18i488gR19r81gajy14:hxsl.Component:0:0jR34:1:0jR34:2:0hR14oR15R16R17i502R18i488gR19jR11:5:2i3r11goR3jR4:1:1r9R14oR15R16R17i516R18i506gR19r12gR14oR15R16R17i516R18i488gR19r90gnR14oR15R16R17i516R18i457gR19r32ghR14oR15R16R17i522R18i451gR19r32gR6jR26:0:0R27oR6r35R8y6:vertexR10jR11:13:1aoR1ahR29r32ghR13i-33gR29r32goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1r21R14oR15R16R17i581R18i558gR19r22goR3jR4:5:3jR5:20:1r76oR3jR4:9:2oR3jR4:1:1r80R14oR15R16R17i594R18i584gR19r81gar85r86r87hR14oR15R16R17i598R18i584gR19jR11:5:2i3r11goR3jR4:1:1r46R14oR15R16R17i617R18i602gR19r47gR14oR15R16R17i617R18i584gR19r123gnR14oR15R16R17i617R18i554gR19r32ghR14oR15R16R17i623R18i548gR19r32gR6r57R27oR6r35R8y8:fragmentR10jR11:13:1aoR1ahR29r32ghR13i-34gR29r32ghR8y23:h3d.shader.AmbientLighty4:varsar101r9r34r133r58r19r80r46hg";
 h3d.shader.Base2d.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey14:spritePositiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-10gy1:poy4:filey72:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBase2d.hxy3:maxi759y3:mini745gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i766R18i762gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i2r11y6:parentoR6r25R8y5:inputR10jR11:12:1ar24oR6r25R8y2:uvR10jR11:5:2i2r11R22r27R13i-3goR6r25R8y5:colorR10jR11:5:2i4r11R22r27R13i-4ghR13i-1gR13i-2gR14oR15R16R17i781R18i767gR19r26goR3jR4:1:1oR6jR7:2:0R8y6:zValueR10jR11:3:0R13i-8gR14oR15R16R17i789R18i783gR19r39goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i792R18i791gR19r39ghR14oR15R16R17i793R18i762gR19jR11:5:2i4r11gR14oR15R16R17i793R18i745gR19r12goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:isRelativeR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-15gR14oR15R16R17i813R18i803gR19r54goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1oR6r10R8y16:absolutePositionR10jR11:5:2i4r11R13i-11gR14oR15R16R17i839R18i823gR19r65gajy14:hxsl.Component:0:0hR14oR15R16R17i841R18i823gR19r39goR3jR4:8:2oR3jR4:2:1jR20:29:0R14oR15R16R17i869R18i844gR19jR11:13:1aoR1aoR8y1:_R10jR11:5:2i3r11goR8y1:bR10jR11:5:2i3r11ghy3:retr39ghgaoR3jR4:8:2oR3jR4:2:1jR20:39:0R14oR15R16R17i848R18i844gR19jR11:13:1ahgaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i863R18i849gR19r12gar69jR32:1:0hR14oR15R16R17i866R18i849gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i868R18i867gR19r39ghR14oR15R16R17i869R18i844gR19r81goR3jR4:1:1oR6r38R8y15:absoluteMatrixAR10jR11:5:2i3r11R13i-17gR14oR15R16R17i889R18i874gR19r111ghR14oR15R16R17i890R18i844gR19r39gR14oR15R16R17i890R18i823gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i913R18i897gR19r65gar99hR14oR15R16R17i915R18i897gR19r39goR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i943R18i918gR19jR11:13:1aoR1aoR8R33R10jR11:5:2i3r11gr82hR35r39ghgaoR3jR4:8:2oR3jR4:2:1r88R14oR15R16R17i922R18i918gR19r92gaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i937R18i923gR19r12gar69r99hR14oR15R16R17i940R18i923gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i942R18i941gR19r39ghR14oR15R16R17i943R18i918gR19r134goR3jR4:1:1oR6r38R8y15:absoluteMatrixBR10jR11:5:2i3r11R13i-18gR14oR15R16R17i963R18i948gR19r158ghR14oR15R16R17i964R18i918gR19r39gR14oR15R16R17i964R18i897gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i987R18i971gR19r65gajR32:2:0jR32:3:0hR14oR15R16R17i990R18i971gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1007R18i993gR19r12gar171r172hR14oR15R16R17i1010R18i993gR19jR11:5:2i2r11gR14oR15R16R17i1010R18i971gR19r175ghR14oR15R16R17i1017R18i816gR19jR11:0:0goR3jR4:5:3r7oR3jR4:1:1r64R14oR15R16R17i1044R18i1028gR19r65goR3jR4:1:1r9R14oR15R16R17i1061R18i1047gR19r12gR14oR15R16R17i1061R18i1028gR19r65gR14oR15R16R17i1061R18i799gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:3:0R8y12:calculatedUVR10jR11:5:2i2r11R13i-14gR14oR15R16R17i1079R18i1067gR19r204goR3jR4:1:1r29R14oR15R16R17i1090R18i1082gR19r30gR14oR15R16R17i1090R18i1067gR19r204goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-12gR14oR15R16R17i1106R18i1096gR19r215goR3jR4:10:3oR3jR4:1:1r53R14oR15R16R17i1119R18i1109gR19r54goR3jR4:5:3jR5:1:0oR3jR4:1:1oR6r38R8R25R10jR11:5:2i4r11R13i-16gR14oR15R16R17i1127R18i1122gR19r226goR3jR4:1:1r31R14oR15R16R17i1141R18i1130gR19r32gR14oR15R16R17i1141R18i1122gR19jR11:5:2i4r11goR3jR4:1:1r31R14oR15R16R17i1155R18i1144gR19r32gR14oR15R16R17i1155R18i1109gR19r234gR14oR15R16R17i1155R18i1096gR19r215goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y12:textureColorR10jR11:5:2i4r11R13i-13gR14oR15R16R17i1173R18i1161gR19r245goR3jR4:8:2oR3jR4:2:1jR20:33:0R14oR15R16R17i1183R18i1176gR19jR11:13:1aoR1aoR8R33R10jR11:10:0goR8R34R10jR11:5:2i2r11ghR35jR11:5:2i4r11ghgaoR3jR4:1:1oR6r38R8y7:textureR10r257R13i-9gR14oR15R16R17i1183R18i1176gR19r257goR3jR4:1:1r202R14oR15R16R17i1200R18i1188gR19r204ghR14oR15R16R17i1201R18i1176gR19r260gR14oR15R16R17i1201R18i1161gR19r245goR3jR4:5:3jR5:20:1r223oR3jR4:1:1r214R14oR15R16R17i1217R18i1207gR19r215goR3jR4:1:1r244R14oR15R16R17i1233R18i1221gR19r245gR14oR15R16R17i1233R18i1207gR19r215ghR14oR15R16R17i1239R18i739gR19r188gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR35r188ghR13i-22gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1285R18i1269gR19r65gar69r99hR14oR15R16R17i1288R18i1269gR19jR11:5:2i2r11goR3jR4:5:3r223oR3jR4:3:1oR3jR4:5:3jR5:0:0oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1308R18i1292gR19r65gar69r99hR14oR15R16R17i1311R18i1292gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1oR6r38R8y8:viewportR10jR11:5:2i4r11R13i-21gR14oR15R16R17i1322R18i1314gR19r321gar69r99hR14oR15R16R17i1325R18i1314gR19jR11:5:2i2r11gR14oR15R16R17i1325R18i1292gR19jR11:5:2i2r11gR14oR15R16R17i1326R18i1291gR19r330goR3jR4:9:2oR3jR4:1:1r320R14oR15R16R17i1337R18i1329gR19r321gar171r172hR14oR15R16R17i1340R18i1329gR19jR11:5:2i2r11gR14oR15R16R17i1340R18i1291gR19jR11:5:2i2r11gR14oR15R16R17i1340R18i1269gR19r305goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:pixelAlignR10r54R29ajR30:0:1nhR13i-19gR14oR15R16R17i1446R18i1436gR19r54goR3jR4:5:3jR5:20:1jR5:3:0oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1465R18i1449gR19r65gar69r99hR14oR15R16R17i1468R18i1449gR19jR11:5:2i2r11goR3jR4:1:1oR6r38R8y16:halfPixelInverseR10jR11:5:2i2r11R13i-20gR14oR15R16R17i1488R18i1472gR19r366gR14oR15R16R17i1488R18i1449gR19r363gnR14oR15R16R17i1488R18i1432gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R21R10jR11:5:2i4r11R22oR6r376R8y6:outputR10jR11:12:1ar375oR6r376R8R25R10jR11:5:2i4r11R22r378R13i-7ghR13i-5gR13i-6gR14oR15R16R17i1509R18i1494gR19r377goR3jR4:1:1r64R14oR15R16R17i1528R18i1512gR19r65gR14oR15R16R17i1528R18i1494gR19r377ghR14oR15R16R17i1534R18i1263gR19r188gR6jR42:0:0R43oR6r288R8y6:vertexR10jR11:13:1aoR1ahR35r188ghR13i-23gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r380R14oR15R16R17i1578R18i1566gR19r381goR3jR4:1:1r214R14oR15R16R17i1591R18i1581gR19r215gR14oR15R16R17i1591R18i1566gR19r381ghR14oR15R16R17i1597R18i1560gR19r188gR6jR42:1:0R43oR6r288R8y8:fragmentR10jR11:13:1aoR1ahR35r188ghR13i-24gR35r188ghR8y17:h3d.shader.Base2dy4:varsar202r393r37r110r287r64r414r264r348r365r244r9r378r53r157r27r225r214r320hg";
-h3d.shader.BaseMesh.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey16:relativePositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-77gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBaseMesh.hxy3:maxi970y3:mini954gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i3r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16oR6r17R8y6:normalR10jR11:5:2i3r11R21r19R13i-71ghR13i-69gR13i-70gR14oR15R16R17i987R18i973gR19r18gR14oR15R16R17i987R18i954gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-78gR14oR15R16R17i1012R18i993gR19r31goR3jR4:5:3jR5:1:0oR3jR4:1:1r9R14oR15R16R17i1031R18i1015gR19r12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:50:0R14oR15R16R17i1050R18i1034gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:0:0R8y9:modelViewR10jR11:7:0R21oR6r49R8y6:globalR10jR11:12:1aoR6r49R8y4:timeR10jR11:3:0R21r51R13i-65goR6r49R8y9:pixelSizeR10jR11:5:2i2r11R21r51R13i-66gr48oR6r49R8y16:modelViewInverseR10r50R21r51y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-68ghR13i-64gR31ar59hR13i-67gR14oR15R16R17i1050R18i1034gR19r50ghR14oR15R16R17i1059R18i1034gR19jR11:8:0gR14oR15R16R17i1059R18i1015gR19jR11:5:2i3r11gR14oR15R16R17i1059R18i993gR19r31goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-80gR14oR15R16R17i1082R18i1065gR19r75goR3jR4:5:3r35oR3jR4:8:2oR3jR4:2:1jR25:40:0R14oR15R16R17i1089R18i1085gR19jR11:13:1ahgaoR3jR4:1:1r30R14oR15R16R17i1109R18i1090gR19r31goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1112R18i1111gR19r54ghR14oR15R16R17i1113R18i1085gR19jR11:5:2i4r11goR3jR4:1:1oR6r49R8y8:viewProjR10r50R21oR6r49R8y6:cameraR10jR11:12:1aoR6r49R8y4:viewR10r50R21r99R13i-57goR6r49R8y4:projR10r50R21r99R13i-58goR6r49R8R20R10jR11:5:2i3r11R21r99R13i-59goR6r49R8y8:projDiagR10jR11:5:2i3r11R21r99R13i-60gr98oR6r49R8y15:inverseViewProjR10r50R21r99R13i-62goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R21r99R13i-63ghR13i-56gR13i-61gR14oR15R16R17i1131R18i1116gR19r50gR14oR15R16R17i1131R18i1085gR19jR11:5:2i4r11gR14oR15R16R17i1131R18i1065gR19r75goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-79gR14oR15R16R17i1154R18i1137gR19r122goR3jR4:8:2oR3jR4:2:1jR25:31:0R14oR15R16R17i1197R18i1157gR19jR11:13:1aoR1aoR8y1:_R10r69ghy3:retr69ghgaoR3jR4:3:1oR3jR4:5:3r35oR3jR4:1:1r21R14oR15R16R17i1170R18i1158gR19r22goR3jR4:8:2oR3jR4:2:1jR25:48:0R14oR15R16R17i1189R18i1173gR19jR11:13:1ahgaoR3jR4:1:1r48R14oR15R16R17i1189R18i1173gR19r50ghR14oR15R16R17i1196R18i1173gR19jR11:6:0gR14oR15R16R17i1196R18i1158gR19r69gR14oR15R16R17i1197R18i1157gR19r69ghR14oR15R16R17i1209R18i1157gR19r69gR14oR15R16R17i1209R18i1137gR19r122goR3jR4:5:3r7oR3jR4:1:1r108R14oR15R16R17i1225R18i1215gR19r110goR3jR4:8:2oR3jR4:2:1r127R14oR15R16R17i1267R18i1228gR19jR11:13:1aoR1aoR8R43R10jR11:5:2i3r11ghR44r69ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r103R14oR15R16R17i1244R18i1229gR19r104goR3jR4:1:1r30R14oR15R16R17i1266R18i1247gR19r31gR14oR15R16R17i1266R18i1229gR19r175gR14oR15R16R17i1267R18i1228gR19r175ghR14oR15R16R17i1279R18i1228gR19r69gR14oR15R16R17i1279R18i1215gR19r110goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-81gR14oR15R16R17i1295R18i1285gR19r198goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-83gR14oR15R16R17i1303R18i1298gR19r204gR14oR15R16R17i1303R18i1285gR19r198goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:depthR10r54R13i-82gR14oR15R16R17i1314R18i1309gR19r54goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1334R18i1317gR19r75gajy14:hxsl.Component:2:0hR14oR15R16R17i1336R18i1317gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1356R18i1339gR19r75gajR48:3:0hR14oR15R16R17i1358R18i1339gR19r54gR14oR15R16R17i1358R18i1317gR19r54gR14oR15R16R17i1358R18i1309gR19r54ghR14oR15R16R17i1364R18i948gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR44r238ghR13i-84gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r121R14oR15R16R17i1421R18i1404gR19r122goR3jR4:8:2oR3jR4:2:1r127R14oR15R16R17i1441R18i1424gR19jR11:13:1aoR1aoR8R43R10r122ghR44r69ghgaoR3jR4:1:1r121R14oR15R16R17i1441R18i1424gR19r122ghR14oR15R16R17i1453R18i1424gR19r69gR14oR15R16R17i1453R18i1404gR19r122ghR14oR15R16R17i1459R18i1398gR19r238gR6jR49:1:0R50oR6r241R8y16:__init__fragmentR10jR11:13:1aoR1ahR44r238ghR13i-85gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R21oR6r286R8y6:outputR10jR11:12:1ar285oR6r286R8R46R10jR11:5:2i4r11R21r288R13i-74goR6r286R8R47R10jR11:5:2i4r11R21r288R13i-75goR6r286R8R23R10jR11:5:2i4r11R21r288R13i-76ghR13i-72gR13i-73gR14oR15R16R17i1504R18i1489gR19r287goR3jR4:1:1r74R14oR15R16R17i1524R18i1507gR19r75gR14oR15R16R17i1524R18i1489gR19r287ghR14oR15R16R17i1530R18i1483gR19r238gR6jR49:0:0R50oR6r241R8y6:vertexR10jR11:13:1aoR1ahR44r238ghR13i-86gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r290R14oR15R16R17i1574R18i1562gR19r291goR3jR4:1:1r197R14oR15R16R17i1587R18i1577gR19r198gR14oR15R16R17i1587R18i1562gR19r291goR3jR4:5:3r7oR3jR4:1:1r292R14oR15R16R17i1605R18i1593gR19r293goR3jR4:8:2oR3jR4:2:1jR25:52:0R14oR15R16R17i1612R18i1608gR19jR11:13:1aoR1aoR8y5:valueR10r54ghR44jR11:5:2i4r11ghgaoR3jR4:1:1r211R14oR15R16R17i1618R18i1613gR19r54ghR14oR15R16R17i1619R18i1608gR19r338gR14oR15R16R17i1619R18i1593gR19r293goR3jR4:5:3r7oR3jR4:1:1r294R14oR15R16R17i1638R18i1625gR19r295goR3jR4:8:2oR3jR4:2:1jR25:54:0R14oR15R16R17i1651R18i1641gR19jR11:13:1aoR1aoR8R55R10jR11:5:2i3r11ghR44jR11:5:2i4r11ghgaoR3jR4:1:1r121R14oR15R16R17i1669R18i1652gR19r122ghR14oR15R16R17i1670R18i1641gR19r362gR14oR15R16R17i1670R18i1625gR19r295ghR14oR15R16R17i1676R18i1556gR19r238gR6r273R50oR6r241R8y8:fragmentR10jR11:13:1aoR1ahR44r238ghR13i-87gR44r238ghR8y19:h3d.shader.BaseMeshy4:varsar74r211r307r121r240r374r274r9r99r288r51r19r30r202r197hg";
-h3d.shader.ScreenShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-108ghR16i-106gR16i-107gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-105ghR16i-103gR16i-104gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-109gR30r55ghR8y23:h3d.shader.ScreenShadery4:varsar57r13r32hg";
-h3d.shader.Blur.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-123ghR16i-121gR16i-122gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-120ghR16i-118gR16i-119gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-131gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y7:isDepthR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR16i-126gR17oR18y70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBlur.hxR20i376R21i369gR22r71goR3jR4:4:1aoR3jR4:7:2oR6jR7:4:0R8y3:valR10r43R16i-133goR3jR4:0:1jR26:3:1d0R17oR18R34R20i398R21i396gR22r43gR17oR18R34R20i399R21i386gR22r55goR3jR4:13:3oR6r80R8y1:iR10jR11:1:0R16i-134goR3jR4:5:3jR5:21:0oR3jR4:5:3jR5:0:0oR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR6r70R8y7:QualityR10r89R32ajR33:0:1nhR16i-125gR17oR18R34R20i423R21i416gR22r89gR17oR18R34R20i423R21i415gR22r89goR3jR4:0:1jR26:2:1i1R17oR18R34R20i428R21i424gR22r89gR17oR18R34R20i428R21i415gR22r89goR3jR4:1:1r97R17oR18R34R20i435R21i428gR22r89gR17oR18R34R20i435R21i415gR22jR11:14:2r89jy13:hxsl.SizeDecl:0:1zgoR3jR4:5:3jR5:20:1r93oR3jR4:1:1r79R17oR18R34R20i447R21i444gR22r43goR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR23:53:0R17oR18R34R20i457R21i451gR22jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR30r43ghgaoR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R34R20i465R21i458gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y1:bR10jR11:5:2i2r11ghR30jR11:5:2i4r11ghgaoR3jR4:1:1oR6r70R8y7:textureR10r145R16i-124gR17oR18R34R20i465R21i458gR22r145goR3jR4:5:3r93oR3jR4:1:1r34R17oR18R34R20i478R21i470gR22r35goR3jR4:5:3r123oR3jR4:1:1oR6r70R8y5:pixelR10jR11:5:2i2r11R16i-128gR17oR18R34R20i486R21i481gR22r162goR3jR4:8:2oR3jR4:2:1jR23:36:0R17oR18R34R20i494R21i489gR22jR11:13:1aoR1aoR8R40R10r89ghR30r43ghgaoR3jR4:1:1r88R17oR18R34R20i496R21i495gR22r89ghR17oR18R34R20i497R21i489gR22r43gR17oR18R34R20i497R21i481gR22r162gR17oR18R34R20i497R21i470gR22jR11:5:2i2r11ghR17oR18R34R20i498R21i458gR22r148ghR17oR18R34R20i499R21i451gR22r43goR3jR4:16:2oR3jR4:1:1oR6r70R8y6:valuesR10jR11:14:2r43jR39:1:1r97R16i-127gR17oR18R34R20i508R21i502gR22r194goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:1:1r88R17oR18R34R20i510R21i509gR22r89goR3jR4:0:1jR26:2:1zR17oR18R34R20i514R21i513gR22r89gR17oR18R34R20i514R21i509gR22r71goR3jR4:6:2r95oR3jR4:1:1r88R17oR18R34R20i519R21i518gR22r89gR17oR18R34R20i519R21i517gR22r89goR3jR4:1:1r88R17oR18R34R20i523R21i522gR22r89gR17oR18R34R20i523R21i509gR22r89gR17oR18R34R20i524R21i502gR22r43gR17oR18R34R20i524R21i451gR22r43gR17oR18R34R20i524R21i444gR22r43gR17oR18R34R20i524R21i405gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i543R21i531gR22r16goR3jR4:8:2oR3jR4:2:1jR23:52:0R17oR18R34R20i550R21i546gR22jR11:13:1aoR1aoR8R40R10r43ghR30jR11:5:2i4r11ghgaoR3jR4:8:2oR3jR4:2:1jR23:21:0R17oR18R34R20i554R21i551gR22jR11:13:1aoR1aoR8R41R10r43goR8R42R10r43ghR30r43ghgaoR3jR4:1:1r79R17oR18R34R20i554R21i551gR22r43goR3jR4:0:1jR26:3:1d0.9999999R17oR18R34R20i568R21i559gR22r43ghR17oR18R34R20i569R21i551gR22r43ghR17oR18R34R20i570R21i546gR22r241gR17oR18R34R20i570R21i531gR22r16ghR17oR18R34R20i577R21i379gR22r55goR3jR4:4:1aoR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-135goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i606R21i602gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i608R21i607gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i611R21i610gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i614R21i613gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i617R21i616gR22r43ghR17oR18R34R20i618R21i602gR22r275gR17oR18R34R20i619R21i590gR22r55goR3jR4:13:3oR6r80R8R36R10r89R16i-136goR3jR4:5:3r91oR3jR4:5:3r93oR3jR4:6:2r95oR3jR4:1:1r97R17oR18R34R20i643R21i636gR22r89gR17oR18R34R20i643R21i635gR22r89goR3jR4:0:1jR26:2:1i1R17oR18R34R20i648R21i644gR22r89gR17oR18R34R20i648R21i635gR22r89goR3jR4:1:1r97R17oR18R34R20i655R21i648gR22r89gR17oR18R34R20i655R21i635gR22jR11:14:2r89jR39:0:1zgoR3jR4:5:3jR5:20:1r93oR3jR4:1:1r274R17oR18R34R20i669R21i664gR22r275goR3jR4:5:3r123oR3jR4:8:2oR3jR4:2:1r138R17oR18R34R20i680R21i673gR22jR11:13:1aoR1aoR8R41R10r145gr146hR30r148ghgaoR3jR4:1:1r152R17oR18R34R20i680R21i673gR22r145goR3jR4:5:3r93oR3jR4:1:1r34R17oR18R34R20i693R21i685gR22r35goR3jR4:5:3r123oR3jR4:1:1r161R17oR18R34R20i701R21i696gR22r162goR3jR4:8:2oR3jR4:2:1r167R17oR18R34R20i709R21i704gR22jR11:13:1ar171hgaoR3jR4:1:1r302R17oR18R34R20i711R21i710gR22r89ghR17oR18R34R20i712R21i704gR22r43gR17oR18R34R20i712R21i696gR22r162gR17oR18R34R20i712R21i685gR22jR11:5:2i2r11ghR17oR18R34R20i713R21i673gR22r148goR3jR4:16:2oR3jR4:1:1r192R17oR18R34R20i722R21i716gR22r194goR3jR4:10:3oR3jR4:5:3r199oR3jR4:1:1r302R17oR18R34R20i724R21i723gR22r89goR3jR4:0:1jR26:2:1zR17oR18R34R20i728R21i727gR22r89gR17oR18R34R20i728R21i723gR22r71goR3jR4:6:2r95oR3jR4:1:1r302R17oR18R34R20i733R21i732gR22r89gR17oR18R34R20i733R21i731gR22r89goR3jR4:1:1r302R17oR18R34R20i737R21i736gR22r89gR17oR18R34R20i737R21i723gR22r89gR17oR18R34R20i738R21i716gR22r43gR17oR18R34R20i738R21i673gR22r148gR17oR18R34R20i738R21i664gR22r275gR17oR18R34R20i738R21i625gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i757R21i745gR22r16goR3jR4:1:1r274R17oR18R34R20i765R21i760gR22r275gR17oR18R34R20i765R21i745gR22r16ghR17oR18R34R20i772R21i583gR22r55gR17oR18R34R20i772R21i365gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y13:hasFixedColorR10r71R32ajR33:0:1nhR16i-129gR17oR18R34R20i794R21i781gR22r71goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i816R21i804gR22r16gajy14:hxsl.Component:0:0jR47:1:0jR47:2:0hR17oR18R34R20i820R21i804gR22jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1oR6r70R8y10:fixedColorR10jR11:5:2i4r11R16i-130gR17oR18R34R20i833R21i823gR22r441gar432r433r434hR17oR18R34R20i837R21i823gR22jR11:5:2i3r11gR17oR18R34R20i837R21i804gR22r437goR3jR4:5:3jR5:20:1r123oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i856R21i844gR22r16gajR47:3:0hR17oR18R34R20i858R21i844gR22r43goR3jR4:9:2oR3jR4:1:1r440R17oR18R34R20i872R21i862gR22r441gar457hR17oR18R34R20i874R21i862gR22r43gR17oR18R34R20i874R21i844gR22r43ghR17oR18R34R20i881R21i797gR22r55gnR17oR18R34R20i881R21i777gR22r55ghR17oR18R34R20i886R21i359gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-132gR30r55ghR8y15:h3d.shader.Blury4:varsar57r97r161r419r440r192r476r152r69r13r32hg";
-h3d.shader.ColorAdd.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:9:2oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-137gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorAdd.hxy3:maxi180y3:mini170gy1:tr14gajy14:hxsl.Component:0:0jR20:1:0jR20:2:0hR14oR15R16R17i184R18i170gR19jR11:5:2i3r13goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i3r13R13i-138gR14oR15R16R17i193R18i188gR19r27gR14oR15R16R17i193R18i170gR19r23ghR14oR15R16R17i199R18i164gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr34ghR13i-139gR25r34ghR8y19:h3d.shader.ColorAddy4:varsar36r25r11hg";
-h3d.shader.ColorKey.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey5:cdiffy4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-143goR3jR4:5:3jy16:haxe.macro.Binop:3:0oR3jR4:1:1oR5r8R7y12:textureColorR9jR10:5:2i4r9R12i-141gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorKey.hxy3:maxi197y3:mini185gy1:tr15goR3jR4:1:1oR5jR6:2:0R7y8:colorKeyR9jR10:5:2i4r9R12i-140gR15oR16R17R18i208R19i200gR20r21gR15oR16R17R18i208R19i185gR20r10gR15oR16R17R18i209R19i173gR20jR10:0:0goR3jR4:10:3oR3jR4:5:3jR13:9:0oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:29:0R15oR16R17R18i223R19i218gR20jR10:13:1aoR1aoR7y1:_R9r10goR7y1:bR9jR10:5:2i4r9ghy3:retjR10:3:0ghgaoR3jR4:1:1r7R15oR16R17R18i223R19i218gR20r10goR3jR4:1:1r7R15oR16R17R18i233R19i228gR20r10ghR15oR16R17R18i234R19i218gR20r43goR3jR4:0:1jy10:hxsl.Const:3:1d1e-005R15oR16R17R18i244R19i237gR20r43gR15oR16R17R18i244R19i218gR20jR10:2:0goR3jR4:11:0R15oR16R17R18i254R19i247gR20r28gnR15oR16R17R18i254R19i214gR20r28ghR15oR16R17R18i260R19i167gR20r28gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahR25r28ghR12i-142gR25r28ghR7y19:h3d.shader.ColorKeyy4:varsar69r19r14hg";
-h3d.shader.ColorMatrix.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:1:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-144gy1:poy4:filey77:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorMatrix.hxy3:maxi184y3:mini174gy1:tr13goR3jR4:1:1oR6jR7:2:0R8y6:matrixR10jR11:7:0R13i-145gR14oR15R16R17i194R18i188gR19r19gR14oR15R16R17i194R18i174gR19r13ghR14oR15R16R17i200R18i168gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr26ghR13i-146gR24r26ghR8y22:h3d.shader.ColorMatrixy4:varsar28r17r10hg";
-h3d.shader.Shadow.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:3:0y4:namey9:shadowPosy4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y10:qualifiersajy17:hxsl.VarQualifier:1:0hy2:idi-96gy1:poy4:filey72:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FShadow.hxy3:maxi341y3:mini332gy1:tr12goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:5:3r20oR3jR4:1:1oR6jR7:4:0R8y19:transformedPositionR10jR11:5:2i3r11R15i-95gR16oR17R18R19i363R20i344gR21r25goR3jR4:1:1oR6jR7:0:0R8y4:projR10jR11:8:0y6:parentoR6r30R8y6:shadowR10jR11:12:1aoR6r30R8y3:mapR10jR11:10:0R24r32R15i-89gr29oR6r30R8y5:colorR10jR11:5:2i3r11R24r32R15i-91goR6r30R8y5:powerR10jR11:3:0R24r32R15i-92goR6r30R8y4:biasR10r39R24r32R15i-93ghR15i-88gR15i-90gR16oR17R18R19i377R20i366gR21r31gR16oR17R18R19i377R20i344gR21jR11:5:2i3r11goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R16oR17R18R19i384R20i380gR21jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R16oR17R18R19i388R20i385gR21r39goR3jR4:0:1jR31:3:1d-0.5R16oR17R18R19i394R20i390gR21r39goR3jR4:0:1jR31:3:1i1R16oR17R18R19i397R20i396gR21r39ghR16oR17R18R19i398R20i380gR21jR11:5:2i3r11gR16oR17R18R19i398R20i344gR21jR11:5:2i3r11goR3jR4:8:2oR3jR4:2:1r49R16oR17R18R19i405R20i401gR21r53gaoR3jR4:0:1jR31:3:1d0.5R16oR17R18R19i409R20i406gR21r39goR3jR4:0:1jR31:3:1d0.5R16oR17R18R19i414R20i411gR21r39goR3jR4:0:1jR31:3:1zR16oR17R18R19i417R20i416gR21r39ghR16oR17R18R19i418R20i401gR21jR11:5:2i3r11gR16oR17R18R19i418R20i344gR21jR11:5:2i3r11gR16oR17R18R19i418R20i332gR21r12ghR16oR17R18R19i424R20i326gR21jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr100ghR15i-97gR35r100goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r24R8y5:depthR10r39R15i-99goR3jR4:8:2oR3jR4:2:1jR30:53:0R16oR17R18R19i474R20i468gR21jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR35r39ghgaoR3jR4:8:2oR3jR4:2:1jR30:33:0R16oR17R18R19i485R20i475gR21jR11:13:1aoR1aoR8y1:_R10r35goR8y1:bR10jR11:5:2i2r11ghR35jR11:5:2i4r11ghgaoR3jR4:1:1r34R16oR17R18R19i485R20i475gR21r35goR3jR4:9:2oR3jR4:1:1r9R16oR17R18R19i499R20i490gR21r12gajy14:hxsl.Component:0:0jR40:1:0hR16oR17R18R19i502R20i490gR21jR11:5:2i2r11ghR16oR17R18R19i503R20i475gR21r137ghR16oR17R18R19i504R20i468gR21r39gR16oR17R18R19i505R20i456gR21r100goR3jR4:7:2oR6r24R8y4:zMaxR10r39R15i-100goR3jR4:8:2oR3jR4:2:1jR30:51:0R16oR17R18R19i697R20i686gR21jR11:13:1aoR1aoR8R38R10r39ghR35r39ghgaoR3jR4:9:2oR3jR4:1:1r9R16oR17R18R19i695R20i686gR21r12gajR40:2:0hR16oR17R18R19i697R20i686gR21r39ghR16oR17R18R19i708R20i686gR21r39gR16oR17R18R19i709R20i675gR21r100goR3jR4:7:2oR6r24R8y5:deltaR10r39R15i-101goR3jR4:5:3jR5:3:0oR3jR4:8:2oR3jR4:2:1jR30:21:0R16oR17R18R19i747R20i726gR21jR11:13:1aoR1aoR8R38R10r39goR8R39R10r39ghR35r39ghgaoR3jR4:3:1oR3jR4:5:3r18oR3jR4:1:1r113R16oR17R18R19i732R20i727gR21r39goR3jR4:1:1r40R16oR17R18R19i746R20i735gR21r39gR16oR17R18R19i746R20i727gR21r39gR16oR17R18R19i747R20i726gR21r39goR3jR4:1:1r160R16oR17R18R19i756R20i752gR21r39ghR16oR17R18R19i757R20i726gR21r39goR3jR4:1:1r160R16oR17R18R19i764R20i760gR21r39gR16oR17R18R19i764R20i726gR21r39gR16oR17R18R19i765R20i714gR21r100goR3jR4:7:2oR6r24R8y5:shadeR10r39R15i-102goR3jR4:8:2oR3jR4:2:1r163R16oR17R18R19i810R20i782gR21jR11:13:1aoR1aoR8R38R10r39ghR35r39ghgaoR3jR4:8:2oR3jR4:2:1jR30:9:0R16oR17R18R19i785R20i782gR21jR11:13:1aoR1aoR8R37R10r39ghR35r39ghgaoR3jR4:5:3r20oR3jR4:1:1r38R16oR17R18R19i799R20i787gR21r39goR3jR4:1:1r185R16oR17R18R19i807R20i802gR21r39gR16oR17R18R19i807R20i787gR21r39ghR16oR17R18R19i810R20i782gR21r39ghR16oR17R18R19i821R20i782gR21r39gR16oR17R18R19i822R20i770gR21r100goR3jR4:5:3jR5:20:1r20oR3jR4:9:2oR3jR4:1:1oR6r24R8y10:pixelColorR10jR11:5:2i4r11R15i-94gR16oR17R18R19i837R20i827gR21r267gar148r149r177hR16oR17R18R19i841R20i827gR21jR11:5:2i3r11goR3jR4:5:3r18oR3jR4:5:3r20oR3jR4:3:1oR3jR4:5:3r187oR3jR4:0:1jR31:3:1i1R16oR17R18R19i847R20i846gR21r39goR3jR4:1:1r225R16oR17R18R19i855R20i850gR21r39gR16oR17R18R19i855R20i846gR21r39gR16oR17R18R19i856R20i845gR21r39goR3jR4:9:2oR3jR4:1:1r36R16oR17R18R19i871R20i859gR21r37gar148r149r177hR16oR17R18R19i875R20i859gR21jR11:5:2i3r11gR16oR17R18R19i875R20i845gR21r296goR3jR4:1:1r225R16oR17R18R19i883R20i878gR21r39gR16oR17R18R19i883R20i845gR21r296gR16oR17R18R19i883R20i827gR21r273ghR16oR17R18R19i889R20i450gR21r100gR6jR32:1:0R33oR6r103R8y8:fragmentR10jR11:13:1aoR1ahR35r100ghR15i-98gR35r100ghR8y17:h3d.shader.Shadowy4:varsar102r309r32r9r23r266hg";
+h3d.shader.BaseMesh.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey16:relativePositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-89gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBaseMesh.hxy3:maxi970y3:mini954gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i3r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16oR6r17R8y6:normalR10jR11:5:2i3r11R21r19R13i-83ghR13i-81gR13i-82gR14oR15R16R17i987R18i973gR19r18gR14oR15R16R17i987R18i954gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-90gR14oR15R16R17i1012R18i993gR19r31goR3jR4:5:3jR5:1:0oR3jR4:1:1r9R14oR15R16R17i1031R18i1015gR19r12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:50:0R14oR15R16R17i1050R18i1034gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:0:0R8y9:modelViewR10jR11:7:0R21oR6r49R8y6:globalR10jR11:12:1aoR6r49R8y4:timeR10jR11:3:0R21r51R13i-77goR6r49R8y9:pixelSizeR10jR11:5:2i2r11R21r51R13i-78gr48oR6r49R8y16:modelViewInverseR10r50R21r51y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-80ghR13i-76gR31ar59hR13i-79gR14oR15R16R17i1050R18i1034gR19r50ghR14oR15R16R17i1059R18i1034gR19jR11:8:0gR14oR15R16R17i1059R18i1015gR19jR11:5:2i3r11gR14oR15R16R17i1059R18i993gR19r31goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-92gR14oR15R16R17i1082R18i1065gR19r75goR3jR4:5:3r35oR3jR4:8:2oR3jR4:2:1jR25:40:0R14oR15R16R17i1089R18i1085gR19jR11:13:1ahgaoR3jR4:1:1r30R14oR15R16R17i1109R18i1090gR19r31goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1112R18i1111gR19r54ghR14oR15R16R17i1113R18i1085gR19jR11:5:2i4r11goR3jR4:1:1oR6r49R8y8:viewProjR10r50R21oR6r49R8y6:cameraR10jR11:12:1aoR6r49R8y4:viewR10r50R21r99R13i-69goR6r49R8y4:projR10r50R21r99R13i-70goR6r49R8R20R10jR11:5:2i3r11R21r99R13i-71goR6r49R8y8:projDiagR10jR11:5:2i3r11R21r99R13i-72gr98oR6r49R8y15:inverseViewProjR10r50R21r99R13i-74goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R21r99R13i-75ghR13i-68gR13i-73gR14oR15R16R17i1131R18i1116gR19r50gR14oR15R16R17i1131R18i1085gR19jR11:5:2i4r11gR14oR15R16R17i1131R18i1065gR19r75goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-91gR14oR15R16R17i1154R18i1137gR19r122goR3jR4:8:2oR3jR4:2:1jR25:31:0R14oR15R16R17i1197R18i1157gR19jR11:13:1aoR1aoR8y1:_R10r69ghy3:retr69ghgaoR3jR4:3:1oR3jR4:5:3r35oR3jR4:1:1r21R14oR15R16R17i1170R18i1158gR19r22goR3jR4:8:2oR3jR4:2:1jR25:48:0R14oR15R16R17i1189R18i1173gR19jR11:13:1ahgaoR3jR4:1:1r48R14oR15R16R17i1189R18i1173gR19r50ghR14oR15R16R17i1196R18i1173gR19jR11:6:0gR14oR15R16R17i1196R18i1158gR19r69gR14oR15R16R17i1197R18i1157gR19r69ghR14oR15R16R17i1209R18i1157gR19r69gR14oR15R16R17i1209R18i1137gR19r122goR3jR4:5:3r7oR3jR4:1:1r108R14oR15R16R17i1225R18i1215gR19r110goR3jR4:8:2oR3jR4:2:1r127R14oR15R16R17i1267R18i1228gR19jR11:13:1aoR1aoR8R43R10jR11:5:2i3r11ghR44r69ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r103R14oR15R16R17i1244R18i1229gR19r104goR3jR4:1:1r30R14oR15R16R17i1266R18i1247gR19r31gR14oR15R16R17i1266R18i1229gR19r175gR14oR15R16R17i1267R18i1228gR19r175ghR14oR15R16R17i1279R18i1228gR19r69gR14oR15R16R17i1279R18i1215gR19r110goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-93gR14oR15R16R17i1295R18i1285gR19r198goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-95gR14oR15R16R17i1303R18i1298gR19r204gR14oR15R16R17i1303R18i1285gR19r198goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:depthR10r54R13i-94gR14oR15R16R17i1314R18i1309gR19r54goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1334R18i1317gR19r75gajy14:hxsl.Component:2:0hR14oR15R16R17i1336R18i1317gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1356R18i1339gR19r75gajR48:3:0hR14oR15R16R17i1358R18i1339gR19r54gR14oR15R16R17i1358R18i1317gR19r54gR14oR15R16R17i1358R18i1309gR19r54ghR14oR15R16R17i1364R18i948gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR44r238ghR13i-96gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r121R14oR15R16R17i1421R18i1404gR19r122goR3jR4:8:2oR3jR4:2:1r127R14oR15R16R17i1441R18i1424gR19jR11:13:1aoR1aoR8R43R10r122ghR44r69ghgaoR3jR4:1:1r121R14oR15R16R17i1441R18i1424gR19r122ghR14oR15R16R17i1453R18i1424gR19r69gR14oR15R16R17i1453R18i1404gR19r122ghR14oR15R16R17i1459R18i1398gR19r238gR6jR49:1:0R50oR6r241R8y16:__init__fragmentR10jR11:13:1aoR1ahR44r238ghR13i-97gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R21oR6r286R8y6:outputR10jR11:12:1ar285oR6r286R8R46R10jR11:5:2i4r11R21r288R13i-86goR6r286R8R47R10jR11:5:2i4r11R21r288R13i-87goR6r286R8R23R10jR11:5:2i4r11R21r288R13i-88ghR13i-84gR13i-85gR14oR15R16R17i1504R18i1489gR19r287goR3jR4:1:1r74R14oR15R16R17i1524R18i1507gR19r75gR14oR15R16R17i1524R18i1489gR19r287ghR14oR15R16R17i1530R18i1483gR19r238gR6jR49:0:0R50oR6r241R8y6:vertexR10jR11:13:1aoR1ahR44r238ghR13i-98gR44r238goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r290R14oR15R16R17i1574R18i1562gR19r291goR3jR4:1:1r197R14oR15R16R17i1587R18i1577gR19r198gR14oR15R16R17i1587R18i1562gR19r291goR3jR4:5:3r7oR3jR4:1:1r292R14oR15R16R17i1605R18i1593gR19r293goR3jR4:8:2oR3jR4:2:1jR25:52:0R14oR15R16R17i1612R18i1608gR19jR11:13:1aoR1aoR8y5:valueR10r54ghR44jR11:5:2i4r11ghgaoR3jR4:1:1r211R14oR15R16R17i1618R18i1613gR19r54ghR14oR15R16R17i1619R18i1608gR19r338gR14oR15R16R17i1619R18i1593gR19r293goR3jR4:5:3r7oR3jR4:1:1r294R14oR15R16R17i1638R18i1625gR19r295goR3jR4:8:2oR3jR4:2:1jR25:54:0R14oR15R16R17i1651R18i1641gR19jR11:13:1aoR1aoR8R55R10jR11:5:2i3r11ghR44jR11:5:2i4r11ghgaoR3jR4:1:1r121R14oR15R16R17i1669R18i1652gR19r122ghR14oR15R16R17i1670R18i1641gR19r362gR14oR15R16R17i1670R18i1625gR19r295ghR14oR15R16R17i1676R18i1556gR19r238gR6r273R50oR6r241R8y8:fragmentR10jR11:13:1aoR1ahR44r238ghR13i-99gR44r238ghR8y19:h3d.shader.BaseMeshy4:varsar74r211r307r121r240r374r274r9r99r288r51r19r30r202r197hg";
+h3d.shader.ScreenShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-140ghR16i-138gR16i-139gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-137ghR16i-135gR16i-136gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-141gR30r55ghR8y23:h3d.shader.ScreenShadery4:varsar57r13r32hg";
+h3d.shader.Blur.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-155ghR16i-153gR16i-154gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-152ghR16i-150gR16i-151gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-163gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y7:isDepthR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR16i-158gR17oR18y70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBlur.hxR20i376R21i369gR22r71goR3jR4:4:1aoR3jR4:7:2oR6jR7:4:0R8y3:valR10r43R16i-165goR3jR4:0:1jR26:3:1d0R17oR18R34R20i398R21i396gR22r43gR17oR18R34R20i399R21i386gR22r55goR3jR4:13:3oR6r80R8y1:iR10jR11:1:0R16i-166goR3jR4:5:3jR5:21:0oR3jR4:5:3jR5:0:0oR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR6r70R8y7:QualityR10r89R32ajR33:0:1nhR16i-157gR17oR18R34R20i423R21i416gR22r89gR17oR18R34R20i423R21i415gR22r89goR3jR4:0:1jR26:2:1i1R17oR18R34R20i428R21i424gR22r89gR17oR18R34R20i428R21i415gR22r89goR3jR4:1:1r97R17oR18R34R20i435R21i428gR22r89gR17oR18R34R20i435R21i415gR22jR11:14:2r89jy13:hxsl.SizeDecl:0:1zgoR3jR4:5:3jR5:20:1r93oR3jR4:1:1r79R17oR18R34R20i447R21i444gR22r43goR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR23:53:0R17oR18R34R20i457R21i451gR22jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR30r43ghgaoR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R34R20i465R21i458gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y1:bR10jR11:5:2i2r11ghR30jR11:5:2i4r11ghgaoR3jR4:1:1oR6r70R8y7:textureR10r145R16i-156gR17oR18R34R20i465R21i458gR22r145goR3jR4:5:3r93oR3jR4:1:1r34R17oR18R34R20i478R21i470gR22r35goR3jR4:5:3r123oR3jR4:1:1oR6r70R8y5:pixelR10jR11:5:2i2r11R16i-160gR17oR18R34R20i486R21i481gR22r162goR3jR4:8:2oR3jR4:2:1jR23:36:0R17oR18R34R20i494R21i489gR22jR11:13:1aoR1aoR8R40R10r89ghR30r43ghgaoR3jR4:1:1r88R17oR18R34R20i496R21i495gR22r89ghR17oR18R34R20i497R21i489gR22r43gR17oR18R34R20i497R21i481gR22r162gR17oR18R34R20i497R21i470gR22jR11:5:2i2r11ghR17oR18R34R20i498R21i458gR22r148ghR17oR18R34R20i499R21i451gR22r43goR3jR4:16:2oR3jR4:1:1oR6r70R8y6:valuesR10jR11:14:2r43jR39:1:1r97R16i-159gR17oR18R34R20i508R21i502gR22r194goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:1:1r88R17oR18R34R20i510R21i509gR22r89goR3jR4:0:1jR26:2:1zR17oR18R34R20i514R21i513gR22r89gR17oR18R34R20i514R21i509gR22r71goR3jR4:6:2r95oR3jR4:1:1r88R17oR18R34R20i519R21i518gR22r89gR17oR18R34R20i519R21i517gR22r89goR3jR4:1:1r88R17oR18R34R20i523R21i522gR22r89gR17oR18R34R20i523R21i509gR22r89gR17oR18R34R20i524R21i502gR22r43gR17oR18R34R20i524R21i451gR22r43gR17oR18R34R20i524R21i444gR22r43gR17oR18R34R20i524R21i405gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i543R21i531gR22r16goR3jR4:8:2oR3jR4:2:1jR23:52:0R17oR18R34R20i550R21i546gR22jR11:13:1aoR1aoR8R40R10r43ghR30jR11:5:2i4r11ghgaoR3jR4:8:2oR3jR4:2:1jR23:21:0R17oR18R34R20i554R21i551gR22jR11:13:1aoR1aoR8R41R10r43goR8R42R10r43ghR30r43ghgaoR3jR4:1:1r79R17oR18R34R20i554R21i551gR22r43goR3jR4:0:1jR26:3:1d0.9999999R17oR18R34R20i568R21i559gR22r43ghR17oR18R34R20i569R21i551gR22r43ghR17oR18R34R20i570R21i546gR22r241gR17oR18R34R20i570R21i531gR22r16ghR17oR18R34R20i577R21i379gR22r55goR3jR4:4:1aoR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-167goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i606R21i602gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i608R21i607gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i611R21i610gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i614R21i613gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i617R21i616gR22r43ghR17oR18R34R20i618R21i602gR22r275gR17oR18R34R20i619R21i590gR22r55goR3jR4:13:3oR6r80R8R36R10r89R16i-168goR3jR4:5:3r91oR3jR4:5:3r93oR3jR4:6:2r95oR3jR4:1:1r97R17oR18R34R20i643R21i636gR22r89gR17oR18R34R20i643R21i635gR22r89goR3jR4:0:1jR26:2:1i1R17oR18R34R20i648R21i644gR22r89gR17oR18R34R20i648R21i635gR22r89goR3jR4:1:1r97R17oR18R34R20i655R21i648gR22r89gR17oR18R34R20i655R21i635gR22jR11:14:2r89jR39:0:1zgoR3jR4:5:3jR5:20:1r93oR3jR4:1:1r274R17oR18R34R20i669R21i664gR22r275goR3jR4:5:3r123oR3jR4:8:2oR3jR4:2:1r138R17oR18R34R20i680R21i673gR22jR11:13:1aoR1aoR8R41R10r145gr146hR30r148ghgaoR3jR4:1:1r152R17oR18R34R20i680R21i673gR22r145goR3jR4:5:3r93oR3jR4:1:1r34R17oR18R34R20i693R21i685gR22r35goR3jR4:5:3r123oR3jR4:1:1r161R17oR18R34R20i701R21i696gR22r162goR3jR4:8:2oR3jR4:2:1r167R17oR18R34R20i709R21i704gR22jR11:13:1ar171hgaoR3jR4:1:1r302R17oR18R34R20i711R21i710gR22r89ghR17oR18R34R20i712R21i704gR22r43gR17oR18R34R20i712R21i696gR22r162gR17oR18R34R20i712R21i685gR22jR11:5:2i2r11ghR17oR18R34R20i713R21i673gR22r148goR3jR4:16:2oR3jR4:1:1r192R17oR18R34R20i722R21i716gR22r194goR3jR4:10:3oR3jR4:5:3r199oR3jR4:1:1r302R17oR18R34R20i724R21i723gR22r89goR3jR4:0:1jR26:2:1zR17oR18R34R20i728R21i727gR22r89gR17oR18R34R20i728R21i723gR22r71goR3jR4:6:2r95oR3jR4:1:1r302R17oR18R34R20i733R21i732gR22r89gR17oR18R34R20i733R21i731gR22r89goR3jR4:1:1r302R17oR18R34R20i737R21i736gR22r89gR17oR18R34R20i737R21i723gR22r89gR17oR18R34R20i738R21i716gR22r43gR17oR18R34R20i738R21i673gR22r148gR17oR18R34R20i738R21i664gR22r275gR17oR18R34R20i738R21i625gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i757R21i745gR22r16goR3jR4:1:1r274R17oR18R34R20i765R21i760gR22r275gR17oR18R34R20i765R21i745gR22r16ghR17oR18R34R20i772R21i583gR22r55gR17oR18R34R20i772R21i365gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y13:hasFixedColorR10r71R32ajR33:0:1nhR16i-161gR17oR18R34R20i794R21i781gR22r71goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i816R21i804gR22r16gajy14:hxsl.Component:0:0jR47:1:0jR47:2:0hR17oR18R34R20i820R21i804gR22jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1oR6r70R8y10:fixedColorR10jR11:5:2i4r11R16i-162gR17oR18R34R20i833R21i823gR22r441gar432r433r434hR17oR18R34R20i837R21i823gR22jR11:5:2i3r11gR17oR18R34R20i837R21i804gR22r437goR3jR4:5:3jR5:20:1r123oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i856R21i844gR22r16gajR47:3:0hR17oR18R34R20i858R21i844gR22r43goR3jR4:9:2oR3jR4:1:1r440R17oR18R34R20i872R21i862gR22r441gar457hR17oR18R34R20i874R21i862gR22r43gR17oR18R34R20i874R21i844gR22r43ghR17oR18R34R20i881R21i797gR22r55gnR17oR18R34R20i881R21i777gR22r55ghR17oR18R34R20i886R21i359gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-164gR30r55ghR8y15:h3d.shader.Blury4:varsar57r97r161r419r440r192r476r152r69r13r32hg";
+h3d.shader.ColorAdd.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:9:2oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-169gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorAdd.hxy3:maxi180y3:mini170gy1:tr14gajy14:hxsl.Component:0:0jR20:1:0jR20:2:0hR14oR15R16R17i184R18i170gR19jR11:5:2i3r13goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i3r13R13i-170gR14oR15R16R17i193R18i188gR19r27gR14oR15R16R17i193R18i170gR19r23ghR14oR15R16R17i199R18i164gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr34ghR13i-171gR25r34ghR8y19:h3d.shader.ColorAddy4:varsar36r25r11hg";
+h3d.shader.ColorKey.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey5:cdiffy4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-175goR3jR4:5:3jy16:haxe.macro.Binop:3:0oR3jR4:1:1oR5r8R7y12:textureColorR9jR10:5:2i4r9R12i-173gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorKey.hxy3:maxi197y3:mini185gy1:tr15goR3jR4:1:1oR5jR6:2:0R7y8:colorKeyR9jR10:5:2i4r9R12i-172gR15oR16R17R18i208R19i200gR20r21gR15oR16R17R18i208R19i185gR20r10gR15oR16R17R18i209R19i173gR20jR10:0:0goR3jR4:10:3oR3jR4:5:3jR13:9:0oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:29:0R15oR16R17R18i223R19i218gR20jR10:13:1aoR1aoR7y1:_R9r10goR7y1:bR9jR10:5:2i4r9ghy3:retjR10:3:0ghgaoR3jR4:1:1r7R15oR16R17R18i223R19i218gR20r10goR3jR4:1:1r7R15oR16R17R18i233R19i228gR20r10ghR15oR16R17R18i234R19i218gR20r43goR3jR4:0:1jy10:hxsl.Const:3:1d1e-005R15oR16R17R18i244R19i237gR20r43gR15oR16R17R18i244R19i218gR20jR10:2:0goR3jR4:11:0R15oR16R17R18i254R19i247gR20r28gnR15oR16R17R18i254R19i214gR20r28ghR15oR16R17R18i260R19i167gR20r28gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahR25r28ghR12i-174gR25r28ghR7y19:h3d.shader.ColorKeyy4:varsar69r19r14hg";
+h3d.shader.ColorMatrix.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:1:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-176gy1:poy4:filey77:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorMatrix.hxy3:maxi184y3:mini174gy1:tr13goR3jR4:1:1oR6jR7:2:0R8y6:matrixR10jR11:7:0R13i-177gR14oR15R16R17i194R18i188gR19r19gR14oR15R16R17i194R18i174gR19r13ghR14oR15R16R17i200R18i168gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr26ghR13i-178gR24r26ghR8y22:h3d.shader.ColorMatrixy4:varsar28r17r10hg";
+h3d.shader.Shadow.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:3:0y4:namey9:shadowPosy4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y10:qualifiersajy17:hxsl.VarQualifier:1:0hy2:idi-128gy1:poy4:filey72:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FShadow.hxy3:maxi341y3:mini332gy1:tr12goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:5:3r20oR3jR4:1:1oR6jR7:4:0R8y19:transformedPositionR10jR11:5:2i3r11R15i-127gR16oR17R18R19i363R20i344gR21r25goR3jR4:1:1oR6jR7:0:0R8y4:projR10jR11:8:0y6:parentoR6r30R8y6:shadowR10jR11:12:1aoR6r30R8y3:mapR10jR11:10:0R24r32R15i-121gr29oR6r30R8y5:colorR10jR11:5:2i3r11R24r32R15i-123goR6r30R8y5:powerR10jR11:3:0R24r32R15i-124goR6r30R8y4:biasR10r39R24r32R15i-125ghR15i-120gR15i-122gR16oR17R18R19i377R20i366gR21r31gR16oR17R18R19i377R20i344gR21jR11:5:2i3r11goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R16oR17R18R19i384R20i380gR21jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R16oR17R18R19i388R20i385gR21r39goR3jR4:0:1jR31:3:1d-0.5R16oR17R18R19i394R20i390gR21r39goR3jR4:0:1jR31:3:1i1R16oR17R18R19i397R20i396gR21r39ghR16oR17R18R19i398R20i380gR21jR11:5:2i3r11gR16oR17R18R19i398R20i344gR21jR11:5:2i3r11goR3jR4:8:2oR3jR4:2:1r49R16oR17R18R19i405R20i401gR21r53gaoR3jR4:0:1jR31:3:1d0.5R16oR17R18R19i409R20i406gR21r39goR3jR4:0:1jR31:3:1d0.5R16oR17R18R19i414R20i411gR21r39goR3jR4:0:1jR31:3:1zR16oR17R18R19i417R20i416gR21r39ghR16oR17R18R19i418R20i401gR21jR11:5:2i3r11gR16oR17R18R19i418R20i344gR21jR11:5:2i3r11gR16oR17R18R19i418R20i332gR21r12ghR16oR17R18R19i424R20i326gR21jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr100ghR15i-129gR35r100goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r24R8y5:depthR10r39R15i-131goR3jR4:8:2oR3jR4:2:1jR30:53:0R16oR17R18R19i474R20i468gR21jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR35r39ghgaoR3jR4:8:2oR3jR4:2:1jR30:33:0R16oR17R18R19i485R20i475gR21jR11:13:1aoR1aoR8y1:_R10r35goR8y1:bR10jR11:5:2i2r11ghR35jR11:5:2i4r11ghgaoR3jR4:1:1r34R16oR17R18R19i485R20i475gR21r35goR3jR4:9:2oR3jR4:1:1r9R16oR17R18R19i499R20i490gR21r12gajy14:hxsl.Component:0:0jR40:1:0hR16oR17R18R19i502R20i490gR21jR11:5:2i2r11ghR16oR17R18R19i503R20i475gR21r137ghR16oR17R18R19i504R20i468gR21r39gR16oR17R18R19i505R20i456gR21r100goR3jR4:7:2oR6r24R8y4:zMaxR10r39R15i-132goR3jR4:8:2oR3jR4:2:1jR30:51:0R16oR17R18R19i697R20i686gR21jR11:13:1aoR1aoR8R38R10r39ghR35r39ghgaoR3jR4:9:2oR3jR4:1:1r9R16oR17R18R19i695R20i686gR21r12gajR40:2:0hR16oR17R18R19i697R20i686gR21r39ghR16oR17R18R19i708R20i686gR21r39gR16oR17R18R19i709R20i675gR21r100goR3jR4:7:2oR6r24R8y5:deltaR10r39R15i-133goR3jR4:5:3jR5:3:0oR3jR4:8:2oR3jR4:2:1jR30:21:0R16oR17R18R19i747R20i726gR21jR11:13:1aoR1aoR8R38R10r39goR8R39R10r39ghR35r39ghgaoR3jR4:3:1oR3jR4:5:3r18oR3jR4:1:1r113R16oR17R18R19i732R20i727gR21r39goR3jR4:1:1r40R16oR17R18R19i746R20i735gR21r39gR16oR17R18R19i746R20i727gR21r39gR16oR17R18R19i747R20i726gR21r39goR3jR4:1:1r160R16oR17R18R19i756R20i752gR21r39ghR16oR17R18R19i757R20i726gR21r39goR3jR4:1:1r160R16oR17R18R19i764R20i760gR21r39gR16oR17R18R19i764R20i726gR21r39gR16oR17R18R19i765R20i714gR21r100goR3jR4:7:2oR6r24R8y5:shadeR10r39R15i-134goR3jR4:8:2oR3jR4:2:1r163R16oR17R18R19i810R20i782gR21jR11:13:1aoR1aoR8R38R10r39ghR35r39ghgaoR3jR4:8:2oR3jR4:2:1jR30:9:0R16oR17R18R19i785R20i782gR21jR11:13:1aoR1aoR8R37R10r39ghR35r39ghgaoR3jR4:5:3r20oR3jR4:1:1r38R16oR17R18R19i799R20i787gR21r39goR3jR4:1:1r185R16oR17R18R19i807R20i802gR21r39gR16oR17R18R19i807R20i787gR21r39ghR16oR17R18R19i810R20i782gR21r39ghR16oR17R18R19i821R20i782gR21r39gR16oR17R18R19i822R20i770gR21r100goR3jR4:5:3jR5:20:1r20oR3jR4:9:2oR3jR4:1:1oR6r24R8y10:pixelColorR10jR11:5:2i4r11R15i-126gR16oR17R18R19i837R20i827gR21r267gar148r149r177hR16oR17R18R19i841R20i827gR21jR11:5:2i3r11goR3jR4:5:3r18oR3jR4:5:3r20oR3jR4:3:1oR3jR4:5:3r187oR3jR4:0:1jR31:3:1i1R16oR17R18R19i847R20i846gR21r39goR3jR4:1:1r225R16oR17R18R19i855R20i850gR21r39gR16oR17R18R19i855R20i846gR21r39gR16oR17R18R19i856R20i845gR21r39goR3jR4:9:2oR3jR4:1:1r36R16oR17R18R19i871R20i859gR21r37gar148r149r177hR16oR17R18R19i875R20i859gR21jR11:5:2i3r11gR16oR17R18R19i875R20i845gR21r296goR3jR4:1:1r225R16oR17R18R19i883R20i878gR21r39gR16oR17R18R19i883R20i845gR21r296gR16oR17R18R19i883R20i827gR21r273ghR16oR17R18R19i889R20i450gR21r100gR6jR32:1:0R33oR6r103R8y8:fragmentR10jR11:13:1aoR1ahR35r100ghR15i-130gR35r100ghR8y17:h3d.shader.Shadowy4:varsar102r309r32r9r23r266hg";
 h3d.shader.Skin.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey19:transformedPositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-40gy1:poy4:filey70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FSkin.hxy3:maxi413y3:mini394gy1:tr12goR3jR4:5:3jR5:0:0oR3jR4:5:3r16oR3jR4:5:3jR5:1:0oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i3r11y6:parentoR6r24R8y5:inputR10jR11:12:1ar23oR6r24R8y6:normalR10jR11:5:2i3r11R21r26R13i-37goR6r24R8y7:weightsR10jR11:5:2i3r11R21r26R13i-38goR6r24R8y7:indexesR10jR11:9:1i4R21r26R13i-39ghR13i-35gR13i-36gR14oR15R16R17i436R18i422gR19r25goR3jR4:16:2oR3jR4:1:1oR6jR7:2:0R8y13:bonesMatrixesR10jR11:14:2jR11:8:0jy13:hxsl.SizeDecl:1:1oR6r40R8y8:MaxBonesR10jR11:1:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-42gR13i-43gR14oR15R16R17i452R18i439gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i466R18i453gR19r33gajy14:hxsl.Component:0:0hR14oR15R16R17i468R18i453gR19r43gR14oR15R16R17i469R18i439gR19r41gR14oR15R16R17i469R18i422gR19jR11:5:2i3r11gR14oR15R16R17i470R18i421gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i486R18i473gR19r31gar55hR14oR15R16R17i488R18i473gR19jR11:3:0gR14oR15R16R17i488R18i421gR19r62goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i511R18i497gR19r25goR3jR4:16:2oR3jR4:1:1r39R14oR15R16R17i527R18i514gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i541R18i528gR19r33gajR31:1:0hR14oR15R16R17i543R18i528gR19r43gR14oR15R16R17i544R18i514gR19r41gR14oR15R16R17i544R18i497gR19r62gR14oR15R16R17i545R18i496gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i561R18i548gR19r31gar90hR14oR15R16R17i563R18i548gR19r72gR14oR15R16R17i563R18i496gR19r62gR14oR15R16R17i563R18i421gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i586R18i572gR19r25goR3jR4:16:2oR3jR4:1:1r39R14oR15R16R17i602R18i589gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i616R18i603gR19r33gajR31:2:0hR14oR15R16R17i618R18i603gR19r43gR14oR15R16R17i619R18i589gR19r41gR14oR15R16R17i619R18i572gR19r62gR14oR15R16R17i620R18i571gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i636R18i623gR19r31gar126hR14oR15R16R17i638R18i623gR19r72gR14oR15R16R17i638R18i571gR19r62gR14oR15R16R17i638R18i421gR19jR11:5:2i3r11gR14oR15R16R17i638R18i394gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-41gR14oR15R16R17i661R18i644gR19r152goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:31:0R14oR15R16R17i673R18i664gR19jR11:13:1aoR1aoR8y5:valueR10r62ghy3:retr62ghgaoR3jR4:5:3r16oR3jR4:5:3r16oR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r28R14oR15R16R17i693R18i681gR19r29goR3jR4:8:2oR3jR4:2:1jR33:48:0R14oR15R16R17i700R18i696gR19jR11:13:1ahgaoR3jR4:16:2oR3jR4:1:1r39R14oR15R16R17i714R18i701gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i728R18i715gR19r33gar55hR14oR15R16R17i730R18i715gR19r43gR14oR15R16R17i731R18i701gR19r41ghR14oR15R16R17i732R18i696gR19jR11:6:0gR14oR15R16R17i732R18i681gR19r62gR14oR15R16R17i733R18i680gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i749R18i736gR19r31gar55hR14oR15R16R17i751R18i736gR19r72gR14oR15R16R17i751R18i680gR19r62goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r28R14oR15R16R17i772R18i760gR19r29goR3jR4:8:2oR3jR4:2:1r176R14oR15R16R17i779R18i775gR19r180gaoR3jR4:16:2oR3jR4:1:1r39R14oR15R16R17i793R18i780gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i807R18i794gR19r33gar90hR14oR15R16R17i809R18i794gR19r43gR14oR15R16R17i810R18i780gR19r41ghR14oR15R16R17i811R18i775gR19r197gR14oR15R16R17i811R18i760gR19r62gR14oR15R16R17i812R18i759gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i828R18i815gR19r31gar90hR14oR15R16R17i830R18i815gR19r72gR14oR15R16R17i830R18i759gR19r62gR14oR15R16R17i830R18i680gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r28R14oR15R16R17i851R18i839gR19r29goR3jR4:8:2oR3jR4:2:1r176R14oR15R16R17i858R18i854gR19r180gaoR3jR4:16:2oR3jR4:1:1r39R14oR15R16R17i872R18i859gR19r47goR3jR4:9:2oR3jR4:1:1r32R14oR15R16R17i886R18i873gR19r33gar126hR14oR15R16R17i888R18i873gR19r43gR14oR15R16R17i889R18i859gR19r41ghR14oR15R16R17i890R18i854gR19r197gR14oR15R16R17i890R18i839gR19r62gR14oR15R16R17i891R18i838gR19r62goR3jR4:9:2oR3jR4:1:1r30R14oR15R16R17i907R18i894gR19r31gar126hR14oR15R16R17i909R18i894gR19r72gR14oR15R16R17i909R18i838gR19r62gR14oR15R16R17i909R18i680gR19jR11:5:2i3r11ghR14oR15R16R17i910R18i664gR19r62gR14oR15R16R17i910R18i644gR19r152ghR14oR15R16R17i916R18i388gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahR35r301ghR13i-44gR35r301ghR8y15:h3d.shader.Skiny4:varsar303r151r39r26r9r42hg";
-h3d.shader.Texture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-51gy1:poy4:filey73:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FTexture.hxy3:maxi370y3:mini358gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y2:uvR10jR11:5:2i2r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16hR13i-45gR13i-46gR14oR15R16R17i381R18i373gR19r18gR14oR15R16R17i381R18i358gR19r12ghR14oR15R16R17i387R18i352gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr28ghR13i-53gR26r28goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y1:cR10jR11:5:2i4r11R13i-55goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i434R18i427gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y1:bR10jR11:5:2i2r11ghR26r42ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r52R13i-50gR14oR15R16R17i434R18i427gR19r52goR3jR4:1:1r9R14oR15R16R17i451R18i439gR19r12ghR14oR15R16R17i452R18i427gR19r42gR14oR15R16R17i453R18i419gR19r28goR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r59R8y9:killAlphaR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-48gR14oR15R16R17i471R18i462gR19r74goR3jR4:5:3jR5:9:0oR3jR4:5:3jR5:3:0oR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i476R18i475gR19r42gajy14:hxsl.Component:3:0hR14oR15R16R17i478R18i475gR19jR11:3:0goR3jR4:1:1oR6r59R8y18:killAlphaThresholdR10r91R13i-49gR14oR15R16R17i499R18i481gR19r91gR14oR15R16R17i499R18i475gR19r91goR3jR4:0:1jy10:hxsl.Const:3:1zR14oR15R16R17i503R18i502gR19r91gR14oR15R16R17i503R18i475gR19r74gR14oR15R16R17i503R18i462gR19r74goR3jR4:11:0R14oR15R16R17i513R18i506gR19r28gnR14oR15R16R17i513R18i458gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y8:additiveR10r74R33ajR34:0:1nhR13i-47gR14oR15R16R17i531R18i523gR19r74goR3jR4:5:3jR5:20:1jR5:0:0oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-52gR14oR15R16R17i549R18i539gR19r123goR3jR4:1:1r41R14oR15R16R17i554R18i553gR19r42gR14oR15R16R17i554R18i539gR19r123goR3jR4:5:3jR5:20:1jR5:1:0oR3jR4:1:1r122R14oR15R16R17i580R18i570gR19r123goR3jR4:1:1r41R14oR15R16R17i585R18i584gR19r42gR14oR15R16R17i585R18i570gR19r123gR14oR15R16R17i585R18i519gR19r28ghR14oR15R16R17i591R18i413gR19r28gR6jR23:1:0R24oR6r31R8y8:fragmentR10jR11:13:1aoR1ahR26r28ghR13i-54gR26r28ghR8y18:h3d.shader.Texturey4:varsar9r30r147r113r58r93r19r73r122hg";
+h3d.shader.Texture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-63gy1:poy4:filey73:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FTexture.hxy3:maxi370y3:mini358gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y2:uvR10jR11:5:2i2r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16hR13i-57gR13i-58gR14oR15R16R17i381R18i373gR19r18gR14oR15R16R17i381R18i358gR19r12ghR14oR15R16R17i387R18i352gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr28ghR13i-65gR26r28goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y1:cR10jR11:5:2i4r11R13i-67goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i434R18i427gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y1:bR10jR11:5:2i2r11ghR26r42ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r52R13i-62gR14oR15R16R17i434R18i427gR19r52goR3jR4:1:1r9R14oR15R16R17i451R18i439gR19r12ghR14oR15R16R17i452R18i427gR19r42gR14oR15R16R17i453R18i419gR19r28goR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r59R8y9:killAlphaR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-60gR14oR15R16R17i471R18i462gR19r74goR3jR4:5:3jR5:9:0oR3jR4:5:3jR5:3:0oR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i476R18i475gR19r42gajy14:hxsl.Component:3:0hR14oR15R16R17i478R18i475gR19jR11:3:0goR3jR4:1:1oR6r59R8y18:killAlphaThresholdR10r91R13i-61gR14oR15R16R17i499R18i481gR19r91gR14oR15R16R17i499R18i475gR19r91goR3jR4:0:1jy10:hxsl.Const:3:1zR14oR15R16R17i503R18i502gR19r91gR14oR15R16R17i503R18i475gR19r74gR14oR15R16R17i503R18i462gR19r74goR3jR4:11:0R14oR15R16R17i513R18i506gR19r28gnR14oR15R16R17i513R18i458gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y8:additiveR10r74R33ajR34:0:1nhR13i-59gR14oR15R16R17i531R18i523gR19r74goR3jR4:5:3jR5:20:1jR5:0:0oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-64gR14oR15R16R17i549R18i539gR19r123goR3jR4:1:1r41R14oR15R16R17i554R18i553gR19r42gR14oR15R16R17i554R18i539gR19r123goR3jR4:5:3jR5:20:1jR5:1:0oR3jR4:1:1r122R14oR15R16R17i580R18i570gR19r123goR3jR4:1:1r41R14oR15R16R17i585R18i584gR19r42gR14oR15R16R17i585R18i570gR19r123gR14oR15R16R17i585R18i519gR19r28ghR14oR15R16R17i591R18i413gR19r28gR6jR23:1:0R24oR6r31R8y8:fragmentR10jR11:13:1aoR1ahR26r28ghR13i-66gR26r28ghR8y18:h3d.shader.Texturey4:varsar9r30r147r113r58r93r19r73r122hg";
+h3d.shader.UVScroll.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-106gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FUVScroll.hxy3:maxi180y3:mini168gy1:tr13goR3jR4:1:1oR6jR7:2:0R8y7:uvDeltaR10jR11:5:2i2r12R13i-105gR14oR15R16R17i191R18i184gR19r19gR14oR15R16R17i191R18i168gR19r13ghR14oR15R16R17i197R18i162gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr26ghR13i-107gR24r26ghR8y19:h3d.shader.UVScrolly4:varsar10r28r17hg";
+h3d.shader.VertexColor.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:10:3oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:2:0y4:namey8:additivey4:typejy9:hxsl.Type:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhy2:idi-103gy1:poy4:filey77:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FVertexColor.hxy3:maxi240y3:mini232gy1:tr10goR3jR4:5:3jy16:haxe.macro.Binop:20:1jR20:0:0oR3jR4:9:2oR3jR4:1:1oR5jR6:4:0R7y10:pixelColorR9jR10:5:2i4jy12:hxsl.VecType:1:0R13i-102gR14oR15R16R17i258R18i248gR19r23gajy14:hxsl.Component:0:0jR23:1:0jR23:2:0hR14oR15R16R17i262R18i248gR19jR10:5:2i3r22goR3jR4:1:1oR5jR6:1:0R7y5:colorR9jR10:5:2i3r22y6:parentoR5r35R7y5:inputR9jR10:12:1ar34hR13i-100gR13i-101gR14oR15R16R17i277R18i266gR19r36gR14oR15R16R17i277R18i248gR19r32goR3jR4:5:3jR20:20:1jR20:1:0oR3jR4:9:2oR3jR4:1:1r20R14oR15R16R17i303R18i293gR19r23gar27r28r29hR14oR15R16R17i307R18i293gR19jR10:5:2i3r22goR3jR4:1:1r34R14oR15R16R17i322R18i311gR19r36gR14oR15R16R17i322R18i293gR19r54gR14oR15R16R17i322R18i228gR19jR10:0:0ghR14oR15R16R17i328R18i222gR19r62gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahy3:retr62ghR13i-104gR30r62ghR7y22:h3d.shader.VertexColory4:varsar66r8r37r20hg";
 haxe.Unserializer.DEFAULT_RESOLVER = Type;
 haxe.Unserializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%:";
+haxe.crypto.Base64.CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+haxe.crypto.Base64.BYTES = haxe.io.Bytes.ofString(haxe.crypto.Base64.CHARS);
 haxe.ds.ObjectMap.count = 0;
 hxd.Key.initDone = false;
 hxd.Key.keyPressed = [];
@@ -15830,6 +19232,10 @@ hxd.System.setCursor = hxd.System.setNativeCursor;
 hxd.impl.Memory.stack = new Array();
 hxd.impl.Memory.inst = new hxd.impl.MemoryReader();
 hxd.impl.Tmp.bytes = new Array();
+hxd.res.Resource.LIVE_UPDATE = true;
+hxd.res.EmbedFileSystem.invalidChars = new EReg("[^A-Za-z0-9_]","g");
+hxd.res.Image.ALLOW_NPOT = false;
+hxd.res.Image.DEFAULT_FILTER = h3d.mat.Filter.Linear;
 hxsl.Tools.UID = 0;
 hxsl.Tools.SWIZ = Type.allEnums(hxsl.Component);
 hxsl.GlslOut.KWD_LIST = ["input","output","discard","dvec2","dvec3","dvec4"];
@@ -15877,6 +19283,8 @@ hxsl.GlslOut.GLOBALS = (function($this) {
 hxsl.GlslOut.MAT34 = "struct mat3x4 { vec4 a; vec4 b; vec4 c; };";
 hxsl.RuntimeShader.UID = 0;
 ld31.gameplay.PolyominoControl.POLYOMINOS = [[[1]],[[1,1]],[[1],[1]],[[1,1],[1,0]],[[1,1],[0,1]],[[0,1],[1,1]],[[1,1,1]],[[1],[1],[1]]];
+ld31.graphic.GhostShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-112gy1:poy4:filey37:src%2Fld31%2Fgraphic%2FGhostShader.hxy3:maxi1406y3:mini1396gy1:tr12goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-114gR14oR15R16R17i1414R18i1409gR19r18gR14oR15R16R17i1414R18i1396gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:whiteR10jR11:5:2i4r11R13i-113gR14oR15R16R17i1425R18i1420gR19r26goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i1432R18i1428gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d1R14oR15R16R17i1436R18i1433gR19jR11:3:0goR3jR4:0:1jR23:3:1d1R14oR15R16R17i1441R18i1438gR19r41goR3jR4:0:1jR23:3:1d1R14oR15R16R17i1446R18i1443gR19r41goR3jR4:0:1jR23:3:1d1R14oR15R16R17i1451R18i1448gR19r41ghR14oR15R16R17i1452R18i1428gR19jR11:5:2i4r11gR14oR15R16R17i1452R18i1420gR19r26ghR14oR15R16R17i1515R18i1055gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahy3:retr61ghR13i-115gR27r61goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8R18R10r41R13i-117goR3jR4:0:1jR23:3:1d0.35R14oR15R16R17i1782R18i1778gR19r41gR14oR15R16R17i1783R18i1768gR19r61goR3jR4:7:2oR6r10R8R17R10r41R13i-118goR3jR4:0:1jR23:3:1d0.65R14oR15R16R17i1802R18i1798gR19r41gR14oR15R16R17i1803R18i1788gR19r61goR3jR4:7:2oR6r10R8y1:fR10r41R13i-119goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR22:2:0R14oR15R16R17i1824R18i1821gR19jR11:13:1aoR1aoR8y5:valueR10r41ghR27r41ghgaoR3jR4:5:3r94oR3jR4:1:1oR6jR7:0:0R8y4:timeR10r41y6:parentoR6r109R8y6:globalR10jR11:12:1ar108hR13i-108gR13i-109gR14oR15R16R17i1836R18i1825gR19r41goR3jR4:0:1jR23:3:1i7R14oR15R16R17i1840R18i1839gR19r41gR14oR15R16R17i1840R18i1825gR19r41ghR14oR15R16R17i1841R18i1821gR19r41goR3jR4:0:1jR23:3:1d0.5R14oR15R16R17i1847R18i1844gR19r41gR14oR15R16R17i1847R18i1821gR19r41goR3jR4:0:1jR23:3:1d0.5R14oR15R16R17i1853R18i1850gR19r41gR14oR15R16R17i1853R18i1821gR19r41gR14oR15R16R17i1854R18i1813gR19r61goR3jR4:5:3r7oR3jR4:1:1r90R14oR15R16R17i1860R18i1859gR19r41goR3jR4:5:3r92oR3jR4:5:3r94oR3jR4:1:1r90R14oR15R16R17i1864R18i1863gR19r41goR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r82R14oR15R16R17i1871R18i1868gR19r41goR3jR4:1:1r74R14oR15R16R17i1877R18i1874gR19r41gR14oR15R16R17i1877R18i1868gR19r41gR14oR15R16R17i1878R18i1867gR19r41gR14oR15R16R17i1878R18i1863gR19r41goR3jR4:1:1r74R14oR15R16R17i1884R18i1881gR19r41gR14oR15R16R17i1884R18i1863gR19r41gR14oR15R16R17i1884R18i1859gR19r41goR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R31oR6r171R8y6:outputR10jR11:12:1ar170hR13i-110gR13i-111gR14oR15R16R17i1907R18i1895gR19r172goR3jR4:5:3r92oR3jR4:5:3r94oR3jR4:1:1r9R14oR15R16R17i1920R18i1910gR19r12goR3jR4:1:1r90R14oR15R16R17i1924R18i1923gR19r41gR14oR15R16R17i1924R18i1910gR19r12goR3jR4:5:3r94oR3jR4:1:1r25R14oR15R16R17i1932R18i1927gR19r26goR3jR4:3:1oR3jR4:5:3r148oR3jR4:0:1jR23:3:1i1R14oR15R16R17i1937R18i1936gR19r41goR3jR4:1:1r90R14oR15R16R17i1939R18i1938gR19r41gR14oR15R16R17i1939R18i1936gR19r41gR14oR15R16R17i1940R18i1935gR19r41gR14oR15R16R17i1940R18i1927gR19r26gR14oR15R16R17i1940R18i1910gR19jR11:5:2i4r11gR14oR15R16R17i1940R18i1895gR19r172ghR14oR15R16R17i2069R18i1715gR19r61gR6jR24:1:0R25oR6r64R8y8:fragmentR10jR11:13:1aoR1ahR27r61ghR13i-116gR27r61ghR8y24:ld31.graphic.GhostShadery4:varsar63r215r173r110r16r9r25hg";
+ld31.graphic.OutShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-49gy1:poy4:filey35:src%2Fld31%2Fgraphic%2FOutShader.hxy3:maxi1404y3:mini1394gy1:tr12goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-51gR14oR15R16R17i1412R18i1407gR19r18gR14oR15R16R17i1412R18i1394gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:blackR10jR11:5:2i4r11R13i-50gR14oR15R16R17i1423R18i1418gR19r26goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i1430R18i1426gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0R14oR15R16R17i1434R18i1431gR19jR11:3:0goR3jR4:0:1jR23:3:1d0R14oR15R16R17i1439R18i1436gR19r41goR3jR4:0:1jR23:3:1d0R14oR15R16R17i1444R18i1441gR19r41goR3jR4:0:1jR23:3:1d1R14oR15R16R17i1449R18i1446gR19r41ghR14oR15R16R17i1450R18i1426gR19jR11:5:2i4r11gR14oR15R16R17i1450R18i1418gR19r26ghR14oR15R16R17i1513R18i1053gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahy3:retr61ghR13i-52gR27r61goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8R18R10r41R13i-54goR3jR4:0:1jR23:3:1d0.35R14oR15R16R17i1780R18i1776gR19r41gR14oR15R16R17i1781R18i1766gR19r61goR3jR4:7:2oR6r10R8R17R10r41R13i-55goR3jR4:0:1jR23:3:1d0.65R14oR15R16R17i1800R18i1796gR19r41gR14oR15R16R17i1801R18i1786gR19r61goR3jR4:7:2oR6r10R8y1:fR10r41R13i-56goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR22:2:0R14oR15R16R17i1822R18i1819gR19jR11:13:1aoR1aoR8y5:valueR10r41ghR27r41ghgaoR3jR4:5:3r94oR3jR4:1:1oR6jR7:0:0R8y4:timeR10r41y6:parentoR6r109R8y6:globalR10jR11:12:1ar108hR13i-45gR13i-46gR14oR15R16R17i1834R18i1823gR19r41goR3jR4:0:1jR23:3:1i14R14oR15R16R17i1839R18i1837gR19r41gR14oR15R16R17i1839R18i1823gR19r41ghR14oR15R16R17i1840R18i1819gR19r41goR3jR4:0:1jR23:3:1d0.5R14oR15R16R17i1846R18i1843gR19r41gR14oR15R16R17i1846R18i1819gR19r41goR3jR4:0:1jR23:3:1d0.5R14oR15R16R17i1852R18i1849gR19r41gR14oR15R16R17i1852R18i1819gR19r41gR14oR15R16R17i1853R18i1811gR19r61goR3jR4:5:3r7oR3jR4:1:1r90R14oR15R16R17i1859R18i1858gR19r41goR3jR4:5:3r92oR3jR4:5:3r94oR3jR4:1:1r90R14oR15R16R17i1863R18i1862gR19r41goR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r82R14oR15R16R17i1870R18i1867gR19r41goR3jR4:1:1r74R14oR15R16R17i1876R18i1873gR19r41gR14oR15R16R17i1876R18i1867gR19r41gR14oR15R16R17i1877R18i1866gR19r41gR14oR15R16R17i1877R18i1862gR19r41goR3jR4:1:1r74R14oR15R16R17i1883R18i1880gR19r41gR14oR15R16R17i1883R18i1862gR19r41gR14oR15R16R17i1883R18i1858gR19r41goR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R31oR6r171R8y6:outputR10jR11:12:1ar170hR13i-47gR13i-48gR14oR15R16R17i1906R18i1894gR19r172goR3jR4:5:3r92oR3jR4:5:3r94oR3jR4:1:1r9R14oR15R16R17i1919R18i1909gR19r12goR3jR4:1:1r90R14oR15R16R17i1923R18i1922gR19r41gR14oR15R16R17i1923R18i1909gR19r12goR3jR4:5:3r94oR3jR4:1:1r25R14oR15R16R17i1931R18i1926gR19r26goR3jR4:3:1oR3jR4:5:3r148oR3jR4:0:1jR23:3:1i1R14oR15R16R17i1936R18i1935gR19r41goR3jR4:1:1r90R14oR15R16R17i1938R18i1937gR19r41gR14oR15R16R17i1938R18i1935gR19r41gR14oR15R16R17i1939R18i1934gR19r41gR14oR15R16R17i1939R18i1926gR19r26gR14oR15R16R17i1939R18i1909gR19jR11:5:2i4r11gR14oR15R16R17i1939R18i1894gR19r172ghR14oR15R16R17i2068R18i1713gR19r61gR6jR24:1:0R25oR6r64R8y8:fragmentR10jR11:13:1aoR1ahR27r61ghR13i-53gR27r61ghR8y22:ld31.graphic.OutShadery4:varsar63r25r215r173r110r16r9hg";
 ld31.math.Dir.DIR_UP = 0;
 ld31.math.Dir.DIR_LEFT = 3;
 ld31.math.Dir.DIR_RIGHT = 1;

@@ -3,6 +3,7 @@ package ld31;
 /*import flash.display.StageAlign;
 import flash.display.StageScaleMode;
 import flash.Lib;*/
+import h3d.Engine;
 
 /**
  * ...
@@ -19,8 +20,16 @@ class Main
 		stage.scaleMode = StageScaleMode.NO_SCALE;
 		stage.align = StageAlign.TOP_LEFT;*/
 		
+		restart();
+	}
+	
+	static function restart()
+	{
+		if ( _game != null ) _game.dispose();
+		
 		hxd.Key.initialize();
-		_game = new Game();
+		hxd.Res.initEmbed();
+		_game = new Game( restart );
 	}
 	
 }

@@ -24,7 +24,7 @@
     <option noInlineOnDebug="False" />
     <option mainClass="ld31.Main" />
     <option enabledebug="True" />
-    <option additional="-lib heaps&#xA;-lib TweenX&#xA;-dce full" />
+    <option additional="-lib heaps&#xA;-lib TweenX&#xA;-dce full&#xA;-D resourcesPath=res" />
   </build>
   <!-- haxelib libraries -->
   <haxelib>

@@ -75,4 +75,9 @@ class CubePrim extends Polygon
 		if ( _CUBE_PRIM == null ) _CUBE_PRIM = new CubePrim();
 		return _CUBE_PRIM;
 	}
+	
+	public static function DISPOSE()
+	{
+		_CUBE_PRIM = null;
+	}
 }

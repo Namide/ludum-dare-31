@@ -56,8 +56,6 @@ class Tilemap
 				}
 				
 			}
-		
-		trace( bounds );
 	}
 	
 	static inline public function getNeutralX():Int

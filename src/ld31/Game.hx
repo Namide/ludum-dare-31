@@ -1,10 +1,12 @@
 package ld31;
+import hxd.Key;
 import hxd.Timer;
 import ld31.gameplay.PlayerControl;
 import ld31.gameplay.Polyomino;
 import ld31.gameplay.PolyominoControl;
 import ld31.gameplay.Tilemap;
 import ld31.graphic.CubeMesh;
+import ld31.graphic.CubePrim;
 import ld31.graphic.PlayerMesh;
 import ld31.graphic.PolyominoObject;
 import ld31.graphic.Render;
@@ -37,12 +39,16 @@ class Game
 	var _playerMesh:PlayerMesh;
 	
 	var _pol:Polyomino;
+	var _msgNum:Int;
 	
-	public function new() 
+	var _restart:Void->Void;
+	
+	public function new( restart ) 
 	{
 		_tm = new Tilemap();
 		_playerControl = new PlayerControl();
 		_graphic = new Render( start );
+		_restart = restart;
 	}
 	
 	public function start()
@@ -77,8 +83,53 @@ class Game
 		hxd.System.setLoop(mainLoop);
 		
 		
-		createPolyomino();
+		
 		initAnimPlayer();
+		
+		_msgNum = 0;
+		updateMsg();
+	}
+	
+	function updateMsg()
+	{
+		if ( _msgNum == 0 )
+		{
+			_msgNum++;
+			_graphic.addMsg( _msgNum );
+		}
+		else if ( _msgNum == 1 )
+		{
+			if ( hxd.Key.isDown(Key.LEFT) || Key.isDown(Key.RIGHT) )
+			{
+				_msgNum++;
+				_graphic.addMsg( _msgNum );
+			}
+		}
+		else if ( _msgNum == 2 )
+		{
+			if ( hxd.Key.isDown(Key.SPACE) )
+			{
+				_msgNum++;
+				_graphic.addMsg( _msgNum );
+				createPolyomino();
+			}
+		}
+		else if ( _msgNum == 3 )
+		{
+			if ( hxd.Key.isDown(Key.DOWN) )
+			{
+				_msgNum++;
+				_graphic.addMsg( _msgNum, 2.0 );
+			}
+		}
+		else if ( _msgNum == 4 )
+		{
+			_msgNum++;
+			//_graphic.addMsg( _msgNum, 2.0 );
+		}
+		
+		if ( Key.isReleased( Key.F11 ) ) _graphic.engine.fullScreen = true; // F
+		if ( Key.isReleased( Key.ENTER ) ) _restart(); // R
 	}
 	
 	function orbital()
@@ -100,7 +151,7 @@ class Game
 	{
 		_dir = newDir;
 		_graphic.rot( _dir );
-		_pol.rot( _dir );
+		if ( _pol != null ) _pol.rot( _dir );
 		
 		// AVOID ORBITAL
 		//_playerControl.vx = 0.0;
@@ -109,6 +160,8 @@ class Game
 	
 	public function mainLoop()
 	{
+		updateMsg();
+		
 		var dt = haxe.Timer.stamp() - _t;
 		_t += dt;
 		_dt += dt;
@@ -157,6 +210,19 @@ class Game
 		_pol.fixToTilemap( _tm, _graphic.map );
 		_pol = null;
 		createPolyomino();
+	}
+	
+	public function dispose()
+	{
+		hxd.System.setLoop(function() { } );
+		/*_graphic.s2d.dispose();
+		_graphic.s3d.dispose();
+		_graphic.engine.dispose();
+		CubeMesh.DISPOSE();
+		CubePrim.DISPOSE();*/
+		TweenX.clear();
+		_graphic.s3d.remove();
+		_graphic.s2d.remove();
 	}
 	
 }

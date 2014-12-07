@@ -1,6 +1,10 @@
 package ld31.graphic;
+import h2d.Bitmap;
+import h2d.Tile;
 import h3d.col.Bounds;
 import h3d.col.Point;
+import h3d.mat.Data.MipMap;
+import hxd.Res;
 import ld31.gameplay.Tilemap;
 import ld31.math.Dir;
 import tweenx909.EaseX;
@@ -62,8 +66,8 @@ class Render
 		};
 		s3d = new h3d.scene.Scene();
 		s2d = new h2d.Scene();
+		s2d.setFixedSize(1280, 720);
 		s3d.addPass(s2d);
-		
 		
 		engine.backgroundColor = 0x000000;
 		
@@ -99,6 +103,41 @@ class Render
 		
 		
 		
+	}
+	
+	var _msg:h2d.Bitmap;
+	var _tile:h2d.Tile;
+	public function addMsg( num:Int, time:Float = -1.0 )
+	{
+		if ( _msg != null ) _msg.remove();
+		if ( _tile != null ) _tile.dispose();
+		
+		if ( num == 1 )
+			_tile = hxd.Res.p01move.toTile();
+		else if ( num == 2 )
+			_tile = hxd.Res.p02jump.toTile();
+		else if ( num == 3 )
+			_tile = hxd.Res.p03add.toTile();
+		else if ( num == 4 )
+			_tile = hxd.Res.p04enjoy.toTile();
+		else
+			return;
+		
+		//_tile.getTexture().mipMap = MipMap.Linear;
+		//_tile.getTexture().realloc();
+		
+		_tile = _tile.center();
+		_msg = new h2d.Bitmap(_tile, s2d);
+		// move its position
+		_msg.x = 1280 * 0.5;
+		_msg.y = 720 * 0.7;
+		
+		if ( time > 0 )
+		{
+			TweenX.to( 	this, {} )
+						.time( 2 )
+						.onFinish( function():Void { addMsg(-1); } );
+		}
 	}
 
 	/*function mainLoop() {
