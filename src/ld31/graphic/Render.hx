@@ -1,5 +1,7 @@
 package ld31.graphic;
 import h2d.Bitmap;
+import h2d.Font;
+import h2d.Text;
 import h2d.Tile;
 import h3d.col.Bounds;
 import h3d.col.Point;
@@ -56,6 +58,57 @@ class Render
 		//s3d.camera.up.set( 0., -1., 0. );
 	}
 	
+	var _font:h2d.Font;
+	var _score:h2d.Text;
+	public function changeScore( tm:Tilemap = null )
+	{
+		if ( _font == null )
+		{
+			_font = hxd.Res.MontserratBold.toFont();
+			//hxd.Res.MontserratBold.build(32);
+			//hxd.Res.MontserratBold.toFont();
+			
+			var title = new h2d.Text(_font, s2d);
+			title.textColor = 0xFFFFFF;
+			title.text = "POLYFILL";
+			title.setPos( 32, 32 );
+			
+			var fontRegular = hxd.Res.MontserratRegular.toFont();
+			var author = new h2d.Text(fontRegular, s2d);
+			author.textColor = 0xff0099;
+			author.textAlign = Align.Right;
+			author.text = "a game by Namide\n(Damien Doussaud)\nwww.namide.com";
+			author.setPos( 1280 - (author.textWidth + 32), 720 - (author.textHeight + 32) );
+			
+		}
+		else if ( _score == null )
+		{
+			_score = new h2d.Text(_font, s2d);
+			_score.textColor = 0xFFFFFF;
+			_score.textAlign = Align.Right;
+			_score.maxWidth = 256;
+			_score.setPos( 1280 - (_score.maxWidth+32) , 32 );
+		}
+
+		if ( _score != null && tm != null )
+		{
+			var s = Std.string(tm.score) + "pts\n";
+			var prc = Math.floor(100 * (tm.squareIn + tm.squareOut) / tm.squareMax);
+			s += prc + "%";
+			_score.text = Std.string(s);
+			//trace( prc, Math.round(prc));
+		}
+		
+		/*var tf = new h2d.Text(font, s2d);
+		tf.textColor = 0xFFFFFF;
+		tf.dropShadow = { dx : 0.5, dy : 0.5, color : 0xFF0000, alpha : 0.8 };
+		tf.text = "Héllò h2d !";
+
+		tf.y = 20;
+		tf.x = 20;
+		tf.scale(7);*/
+	}
+	
 	function onResize() {
 	}
 
@@ -97,12 +150,8 @@ class Render
 	
 	public inline function refresh()
 	{
-		
 		//s2d.checkEvents();
 		engine.render(s3d);
-		
-		
-		
 	}
 	
 	var _msg:h2d.Bitmap;
@@ -120,6 +169,10 @@ class Render
 			_tile = hxd.Res.p03add.toTile();
 		else if ( num == 4 )
 			_tile = hxd.Res.p04enjoy.toTile();
+		else if ( num == 5 )
+			_tile = hxd.Res.p05end1.toTile();
+		else if ( num == 6 )
+			_tile = hxd.Res.p06end2.toTile();
 		else
 			return;
 		

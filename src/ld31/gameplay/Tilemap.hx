@@ -14,6 +14,12 @@ import ld31.math.Vec2d;
 class Tilemap
 {
 
+	public var score:Int;
+	public var squareIn:Int;
+	public var squareOut:Int;
+	public var squareMax:Int;
+	
+	
 	public inline static var SIDE_NUM_X:Int = 13;
 	public inline static var SIDE_NUM_Y:Int = 13;
 	inline static var _MARGIN:Int = 5;
@@ -33,6 +39,7 @@ class Tilemap
 	public function new() 
 	{
 		_staticTypes = getEmtpyGrid();
+		squareMax = SIDE_NUM_X * SIDE_NUM_Y - 1;
 		bounds = new Bounds();
 		updateBB();
 	}
@@ -53,8 +60,7 @@ class Tilemap
 					if ( i < bounds.xMin ) bounds.xMin = i;
 					if ( j > bounds.yMax ) bounds.yMax = j;
 					if ( i > bounds.xMax ) bounds.xMax = i;
-				}
-				
+				}	
 			}
 	}
 	
@@ -138,6 +144,14 @@ class Tilemap
 		return false;
 	}
 	
+	public inline function addSquare( squareIn:Int = 0, squareOut:Int = 0 )
+	{
+		this.squareIn += squareIn;
+		this.squareOut += squareOut;
+		this.score += squareIn * 10 + squareOut;
+		//squareMax = squareIn + squareOut;
+	}
+	
 	public function addPolyomino( form:Array<Array<Int>>, x:Int, y:Int, mm:MapObject )
 	{
 		for ( j in y...(y+form.length) )
@@ -167,9 +181,15 @@ class Tilemap
 	public inline function set( x:Int, y:Int, type:Int, mm:MapObject )
 	{
 		if ( isInArea(x, y) )
+		{
+			addSquare( 1, 0 );
 			mm.addSquare( type, x, y );
+		}
 		else
+		{
+			addSquare( 0, 1 );
 			mm.addSquare( Tilemap.TYPE_OUT, x, y );
+		}
 		
 		x += _MARGIN;
 		y += _MARGIN;

@@ -120,6 +120,7 @@ class Game
 			{
 				_msgNum++;
 				_graphic.addMsg( _msgNum, 2.0 );
+				_graphic.changeScore();
 			}
 		}
 		else if ( _msgNum == 4 )
@@ -210,6 +211,23 @@ class Game
 		_pol.fixToTilemap( _tm, _graphic.map );
 		_pol = null;
 		createPolyomino();
+		_graphic.changeScore( _tm );
+		
+		if ( _tm.squareIn + _tm.squareOut >= _tm.squareMax )
+			finish(); 
+	}
+	
+	function finish()
+	{
+		_playerControl.blockControls = true;
+		if ( _tm.squareIn >= Tilemap.SIDE_NUM_X * Tilemap.SIDE_NUM_Y - 1 )
+		{
+			_graphic.addMsg( 6 );
+		}
+		else
+		{
+			_graphic.addMsg( 5 );
+		}
 	}
 	
 	public function dispose()
