@@ -14,6 +14,7 @@ class Tilemap
 
 	public inline static var SIDE_NUM_X:Int = 13;
 	public inline static var SIDE_NUM_Y:Int = 13;
+	inline static var _MARGIN:Int = 5;
 	
 	public inline static var TYPE_EMPTY:Int = 0;
 	public inline static var TYPE_NEUTRAL:Int = 1;
@@ -75,69 +76,49 @@ class Tilemap
 	static function getEmtpyGrid()
 	{
 		var a:Array<Array<Int>> = [];
-		for ( i in 0...SIDE_NUM_X )
+		for ( i in 0...SIDE_NUM_X+2*_MARGIN )
 		{
 			a[i] = [];
-			for ( j in 0...SIDE_NUM_Y )
+			for ( j in 0...SIDE_NUM_Y+2*_MARGIN )
 				a[i][j] = TYPE_EMPTY;
 		}
-		var mX:Int = getNeutralX();
-		var mY:Int = getNeutralY();
+		var mX:Int = getNeutralX()+_MARGIN;
+		var mY:Int = getNeutralY()+_MARGIN;
 		a[mX][mY] = TYPE_NEUTRAL;
-		/*a[mX][mY-1] = TYPE_NEUTRAL;
-		a[mX-1][mY-1] = TYPE_NEUTRAL;
-		a[mX-1][mY] = TYPE_NEUTRAL;*/
 		return a;
 	}
-	
-	/*public function getReversed( dir:Int )
-	{
-		dir = Dir.normDir( dir );
-		
-		var a = getEmtpyGrid();
-		for ( i in 0...a.length )
-			for ( j in 0...a[i].length )
-				a[i][j] = get( i, j, dir );
-		
-		return a;
-	}*/
 	
 	public function getPosPolContact( form:Array<Array<Int>>, dir:Dir, x:Int, y:Int  ):Array<Int>
 	{
 		if ( dir.is(Dir.DIR_UP) )
 		{
-			for ( j in -form.length...SIDE_NUM_Y )
+			var min = -(form.length+_MARGIN);
+			for ( j in min...SIDE_NUM_Y+_MARGIN )
 				if ( hasPolContact( form, x, j ) )
 					return [x, j-1];
 		}
 		else if ( dir.is(Dir.DIR_DOWN) )
 		{
-			var j = SIDE_NUM_Y-1;
-			var min = -form.length-1;
+			var j = SIDE_NUM_Y+_MARGIN;
+			var min = -(form.length+_MARGIN);
 			while ( --j > min )
 				if ( hasPolContact( form, x, j ) )
 					return [x, j+1];
-			/*for ( j in SIDE_NUM_Y... -form.length )
-				if ( hasPolContact( form, x, j ) )
-					return [x, j+1];*/
 		}
 		else if ( dir.is(Dir.DIR_LEFT) )
 		{
-			for ( i in -form[0].length...SIDE_NUM_X )
+			var min = -(form[0].length+_MARGIN);
+			for ( i in -form[0].length...SIDE_NUM_X+_MARGIN )
 				if ( hasPolContact( form, i, y ) )
 					return [i-1, y];
 		}
 		else if ( dir.is(Dir.DIR_RIGHT) )
 		{
-			var i = SIDE_NUM_X-1;
-			var min = -form[0].length-1;
+			var i = SIDE_NUM_X+_MARGIN;
+			var min = -(form[0].length+_MARGIN);
 			while ( --i > min )
 				if ( hasPolContact( form, i, y ) )
 					return [i + 1, y];
-			
-			/*for ( i in SIDE_NUM_X...-form[0].length )
-				if ( hasPolContact( form, i, y ) )
-					return [i+1, y];*/
 		}
 		
 		return null;
@@ -147,14 +128,11 @@ class Tilemap
 	{
 		for ( j in y...(y+form.length) )
 		{
-			if ( j > -1 && j < _staticTypes.length )
-				for ( i in x...(x+form[0].length) )
-				{
-					if ( i > -1 && i < _staticTypes[j].length )
-						if ( _staticTypes[j][i] != TYPE_EMPTY && form[j-y][i-x] != 0 )
-							return true;
-				}
-			
+			for ( i in x...(x+form[0].length) )
+			{
+				if ( get( i, j ) != TYPE_EMPTY && form[j-y][i-x] != 0 )
+					return true;
+			}
 		}
 		return false;
 	}
@@ -163,64 +141,17 @@ class Tilemap
 	{
 		for ( j in y...(y+form.length) )
 		{
-			if ( j > -1 && j < _staticTypes.length )
-				for ( i in x...(x+form[0].length) )
+			for ( i in x...(x+form[0].length) )
+			{
+				if ( get( i, j ) == TYPE_EMPTY && form[j-y][i-x] != 0 )
 				{
-					if ( i > -1 && i < _staticTypes[j].length )
-						if ( _staticTypes[j][i] == TYPE_EMPTY && form[j - y][i - x] != 0 )
-						{
-							trace("ok");
-							_staticTypes[j][i] = form[j-y][i-x];
-						}
+					set( i, j, form[j - y][i - x] );
+					//_staticTypes[j][i] = form[j-y][i-x];
 				}
-			
+			}
 		}
 		updateBB();
 	}
-	
-	/*public function hasPolContact( form:Array<Array<Int>>, dir:Dir, x:Int, y:Int ):Bool
-	{
-		if ( dir.is(Dir.DIR_UP) || dir.is(Dir.DIR_DOWN) )
-			return hasPolContactVertical( form, x );
-		else
-			return hasPolContactHorizontal( form, y );
-		
-		return false;
-	}
-	
-	function hasPolContactVertical( form:Array<Array<Int>>, x:Int ):Bool
-	{
-		var iMin:Int = x;
-		var iMax:Int = x + form[0].length;
-		iMin = (iMin < 0) ? 0 : iMin;
-		iMax = (iMax > SIDE_NUM) ? SIDE_NUM : iMax;
-		
-		if ( iMin > SIDE_NUM || iMax < 0 || iMax - iMin < 0 ) return false;
-		
-		for ( j in 0...SIDE_NUM )
-			for ( i in iMin...iMax )
-			{
-				if ( _staticTypes[j][i] != TYPE_EMPTY ) return true;
-			}
-		return false;
-	}
-	
-	function hasPolContactHorizontal( form:Array<Array<Int>>, y:Int ):Bool
-	{
-		var jMin:Int = y;
-		var jMax:Int = y + form.length;
-		jMin = (jMin < 0) ? 0 : jMin;
-		jMax = (jMax > SIDE_NUM) ? SIDE_NUM : jMax;
-		
-		if ( jMin > SIDE_NUM || jMax < 0 || jMax - jMin < 0 ) return false;
-		
-		for ( j in jMin...jMax )
-			for ( i in 0...SIDE_NUM )
-			{
-				if ( _staticTypes[j][i] != TYPE_EMPTY ) return true;
-			}
-		return false;
-	}*/
 	
 	public function getCol( x:Int, y:Int ):Contacts
 	{
@@ -233,38 +164,28 @@ class Tilemap
 		return c;
 	}
 	
+	public inline function set( x:Int, y:Int, type:Int )
+	{
+		x += _MARGIN;
+		y += _MARGIN;
+		
+		if ( x > -1 && y > -1 && x < _staticTypes[0].length && y < _staticTypes.length )
+			_staticTypes[y][x] = type;
+		
+	}
+	
 	public inline function get( x:Int, y:Int):Int
 	{
+		x += _MARGIN;
+		y += _MARGIN;
+		
 		var rep:Int;
-		if ( x > -1 && y > -1 && x < SIDE_NUM_X && y < SIDE_NUM_Y )
+		if ( x > -1 && y > -1 && x < _staticTypes[0].length && y < _staticTypes.length )
 			rep = _staticTypes[y][x];
 		else
 			rep = TYPE_EMPTY;
 		
 		return rep;
-		//dir = Dir.normDir( dir );
-		/*var nx:Int, ny:Int;
-		if ( dir == 1 )
-		{
-			nx = y;
-			ny = SIDE_NUM - x;
-		}
-		else if ( dir == 2 )
-		{
-			nx = x;
-			ny = -y;
-		}
-		else if ( dir == 3 )
-		{
-			nx = SIDE_NUM - y;
-			ny = x;
-		}
-		else
-		{
-			nx = x;
-			ny = y;
-		}*/
-		
 	}
 	
 }
