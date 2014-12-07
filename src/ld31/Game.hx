@@ -9,6 +9,8 @@ import ld31.graphic.PlayerMesh;
 import ld31.graphic.PolyominoObject;
 import ld31.graphic.Render;
 import ld31.math.Dir;
+import tweenx909.EaseX;
+import tweenx909.TweenX;
 
 /**
  * ...
@@ -25,6 +27,7 @@ class Game
 	
 	
 	var _dir:Dir;
+	var _lastDirChange:Float;
 	
 	
 	var _tm:Tilemap;
@@ -47,6 +50,7 @@ class Game
 		_dt = 0.;
 		_t = haxe.Timer.stamp();
 		_dir = new Dir();
+		_lastDirChange = _t;
 		
 		var p = Tilemap.getNeutralPos();
 		
@@ -66,6 +70,7 @@ class Game
 		//		PLAYER
 		_playerControl.x = p.x;
 		_playerControl.y = p.y - 1;
+		_playerControl.onRestart = orbital;
 		_playerMesh = new PlayerMesh( _graphic.s3d );
 		_playerMesh.scale( 0.5 );
 		
@@ -73,6 +78,22 @@ class Game
 		
 		
 		createPolyomino();
+		initAnimPlayer();
+	}
+	
+	function orbital()
+	{
+		initAnimPlayer();
+	}
+	
+	function initAnimPlayer()
+	{
+		_playerMesh.z = 50;
+		_playerControl.blockControls = true;
+		TweenX.to( _playerMesh, {z:0} )
+				.time( 0.5 )
+				.ease( EaseX.circIn )
+				.onFinish( function():Void { _playerControl.blockControls = false; } );
 	}
 	
 	public function changeDir(newDir:Dir)
@@ -80,6 +101,10 @@ class Game
 		_dir = newDir;
 		_graphic.rot( _dir );
 		_pol.rot( _dir );
+		
+		// AVOID ORBITAL
+		//_playerControl.vx = 0.0;
+		//_playerControl.vy = 0.2;
 	}
 	
 	public function mainLoop()
@@ -93,11 +118,13 @@ class Game
 			var col = _tm.getCol( Math.round(_playerControl.x), Math.round(_playerControl.y) );
 			_playerControl.updateCollides( col );
 			
-			if ( _pol != null ) _pol.updateGhost( _playerControl.x, _playerControl.y, _tm );
+			if ( _pol != null )
+				_pol.updateGhost( _playerControl.x, _playerControl.y, _tm/*, _playerControl.blockControls*/ );
 			
 			var newDir = Dir.getDir( _playerControl.x, _playerControl.y, _tm, _dir );
-			if ( !_dir.is( newDir.get() ) )
+			if ( !_dir.is( newDir.get() ) && (haxe.Timer.stamp() - _lastDirChange) > 0.2 )
 			{
+				_lastDirChange = haxe.Timer.stamp();
 				changeDir( newDir );
 			}
 			
@@ -105,7 +132,7 @@ class Game
 			{
 				_playerMesh.x = _playerControl.x;
 				_playerMesh.y = _playerControl.y;
-				if ( Math.random() < 0.01 ) trace( _playerControl.x, _playerControl.y, _playerMesh.x, _playerMesh.y );
+				//if ( Math.random() < 0.01 ) trace( _playerControl.x, _playerControl.y, _playerMesh.x, _playerMesh.y );
 				_graphic.refresh();
 			}
 			

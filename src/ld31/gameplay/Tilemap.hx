@@ -12,8 +12,8 @@ import ld31.math.Vec2d;
 class Tilemap
 {
 
-	public inline static var SIDE_NUM_X:Int = 14;
-	public inline static var SIDE_NUM_Y:Int = 14;
+	public inline static var SIDE_NUM_X:Int = 13;
+	public inline static var SIDE_NUM_Y:Int = 13;
 	
 	public inline static var TYPE_EMPTY:Int = 0;
 	public inline static var TYPE_NEUTRAL:Int = 1;
@@ -84,7 +84,9 @@ class Tilemap
 		var mX:Int = getNeutralX();
 		var mY:Int = getNeutralY();
 		a[mX][mY] = TYPE_NEUTRAL;
-		a[mX][mY+1] = TYPE_NEUTRAL;
+		/*a[mX][mY-1] = TYPE_NEUTRAL;
+		a[mX-1][mY-1] = TYPE_NEUTRAL;
+		a[mX-1][mY] = TYPE_NEUTRAL;*/
 		return a;
 	}
 	

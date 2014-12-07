@@ -6,39 +6,6 @@ import ld31.math.Dir;
 import tweenx909.EaseX;
 import tweenx909.TweenX;
 
-class CustomRenderer extends h3d.scene.Renderer {
-
-	//var sao : h3d.pass.ScalableAO;
-	//var saoBlur : h3d.pass.Blur;
-	//var out : h3d.mat.Texture;
-	//var fxaa : FXAA;
-	
-	public function new() {
-		super();
-		
-		//fxaa = new FXAA();
-		
-		//sao = new h3d.pass.ScalableAO();
-		// TODO : use a special Blur that prevents bluring across depths
-		//saoBlur = new h3d.pass.Blur(3,5);
-		//saoBlur.passes = 3;
-	}
-
-	override function process( ctx, passes ) {
-		super.process(ctx, passes);
-
-		//fxaa.apply( tcache );
-		
-		/*var saoTarget = allocTarget("sao",0,false);
-		setTarget(saoTarget);
-		sao.apply(depth.getTexture(), normal.getTexture(), ctx.camera);
-		saoBlur.apply(saoTarget, allocTarget("saoBlurTmp", 0, false));
-
-		h3d.pass.Copy.run(saoTarget, null, Multiply);*/
-	}
-
-}
-
 /**
  * ...
  * @author Namide
@@ -103,16 +70,19 @@ class Render
 		s3d.camera.up.set( 0., -1., 0. );
 		s3d.camera.pos.set( p.x, p.y, 0.5 * (Tilemap.SIDE_NUM_X + Tilemap.SIDE_NUM_Y) * s3d.camera.zoom );
 		s3d.camera.target.set( p.x, p.y );
-		
+		//s3d.camera.viewX = (1280 - 720) * 0.5;
+		//trace(s3d.camera.viewX);
+		//trace(s3d.camera.viewX = 0.5 * ( 1 - 1280 / 720 ));
+		//s3d.camera.viewX = 1-1280/720;
+		//s3d.camera.viewY = -0.05;
+		//s3d.camera.viewX = -0.44;
 		
 		var bg = new TimerObject( s3d );
-		bg.scaleX = Tilemap.SIDE_NUM_X + 1;
-		bg.scaleY = Tilemap.SIDE_NUM_Y + 1;
-		bg.setPos( p.x, p.y, -0.01 );
+		bg.scaleX = Tilemap.SIDE_NUM_X;
+		bg.scaleY = Tilemap.SIDE_NUM_Y;
+		bg.setPos( Tilemap.getNeutralX(), Tilemap.getNeutralY(), -0.01 );
 		
 		
-		
-		s3d.renderer = new CustomRenderer();
 		
 		_onInit();
 		

@@ -30,6 +30,11 @@ class Dir
 		return _dir == dir;
 	}
 	
+	public inline function isHorizontal():Bool
+	{
+		return (is(Dir.DIR_LEFT ) || is( Dir.DIR_RIGHT));
+	}
+	
 	public inline function get():Int
 	{
 		return _dir;
