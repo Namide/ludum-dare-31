@@ -14,7 +14,8 @@ How to play
 
 Objective
 ---
-Fill the square without holes and without square out of the bounds
+Polyfill is a puzzle/platform game.
+You will fill the screen without holes and without square out of the bounds.
 
 
 Dependencies
@@ -28,5 +29,6 @@ Details
 ---
 
 * Language: Haxe 3
-* FlashPlayer: >11.5
+* FlashPlayer: >11.8
+* Samples and music created with Soundation
  

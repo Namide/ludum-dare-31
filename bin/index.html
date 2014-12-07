@@ -27,9 +27,25 @@
 			flashvars, params, attributes);
 	</script>
 	<style>
-		html, body { height:100%; overflow:hidden; }
+		html, body { background-color:#000; }
 		body { margin:0; text-align: center; }
-		#ludumdare31 { max-width: 1280px; min-width:720px; }
+		#ludumdare31 { width: 1024px; height:720px; }
+		
+		@media (min-width:1536px), (min-height: 1080px) {
+		  #ludumdare31 { width: 1536px; height:1080px; }
+		}
+		
+		@media (min-width:1456px), (min-height: 1024px) {
+		  #ludumdare31 { width: 1456px; height:1024px; }
+		}
+		
+		@media (max-width:1024px), (max-height: 720px) {
+		  #ludumdare31 { width: 910px; height:640px; }
+		}
+		
+		@media (max-width:910px), (max-height: 640px) {
+		  #ludumdare31 { width: 640px; height:450px; }
+		}
 	</style>
 </head>
 <body>
