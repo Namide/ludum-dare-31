@@ -1,5 +1,7 @@
 package ld31.gameplay;
+import h3d.Engine;
 import hxd.Math;
+import ld31.graphic.MapObject;
 import ld31.math.Bounds;
 import ld31.math.Contacts;
 import ld31.math.Dir;
@@ -22,6 +24,7 @@ class Tilemap
 	public inline static var TYPE_G:Int = 3;
 	public inline static var TYPE_B:Int = 4;
 	public inline static var TYPE_PLAYER:Int = 5;
+	public inline static var TYPE_OUT:Int = 6;
 	
 	var _staticTypes:Array<Array<Int>>;
 	
@@ -137,7 +140,7 @@ class Tilemap
 		return false;
 	}
 	
-	public function addPolyomino( form:Array<Array<Int>>, x:Int, y:Int )
+	public function addPolyomino( form:Array<Array<Int>>, x:Int, y:Int, mm:MapObject )
 	{
 		for ( j in y...(y+form.length) )
 		{
@@ -145,8 +148,7 @@ class Tilemap
 			{
 				if ( get( i, j ) == TYPE_EMPTY && form[j-y][i-x] != 0 )
 				{
-					set( i, j, form[j - y][i - x] );
-					//_staticTypes[j][i] = form[j-y][i-x];
+					set( i, j, form[j - y][i - x], mm );
 				}
 			}
 		}
@@ -164,14 +166,24 @@ class Tilemap
 		return c;
 	}
 	
-	public inline function set( x:Int, y:Int, type:Int )
+	public inline function set( x:Int, y:Int, type:Int, mm:MapObject )
 	{
+		if ( isInArea(x, y) )
+			mm.addSquare( type, x, y );
+		else
+			mm.addSquare( Tilemap.TYPE_OUT, x, y );
+		
 		x += _MARGIN;
 		y += _MARGIN;
 		
 		if ( x > -1 && y > -1 && x < _staticTypes[0].length && y < _staticTypes.length )
 			_staticTypes[y][x] = type;
 		
+	}
+	
+	public inline function isInArea( x:Int, y:Int ):Bool
+	{
+		return x > -1 && y > -1 && x < SIDE_NUM_X && y < SIDE_NUM_Y;
 	}
 	
 	public inline function get( x:Int, y:Int):Int

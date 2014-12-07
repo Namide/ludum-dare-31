@@ -154,7 +154,7 @@ class Game
 	
 	public function sitPolyomino()
 	{
-		_pol.fixToTilemap( _tm );
+		_pol.fixToTilemap( _tm, _graphic.map );
 		_pol = null;
 		createPolyomino();
 	}

@@ -15,7 +15,7 @@ class CubePrim extends Polygon
 	
 	public function new()
 	{
-		var z = 0.5;
+		//var z = 0.5;
 		
 		var p = [
 			/*new Point(-.5, -.5, -z),

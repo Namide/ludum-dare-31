@@ -1,6 +1,7 @@
 package ld31.gameplay;
 import h3d.scene.Object;
 import ld31.gameplay.Tilemap;
+import ld31.graphic.MapObject;
 import ld31.graphic.PolyominoObject;
 import ld31.math.Dir;
 import tweenx909.EaseX;
@@ -41,11 +42,15 @@ class Polyomino
 		rot( dir );
 	}
 	
-	public function fixToTilemap( tm:Tilemap )
+	public function fixToTilemap( tm:Tilemap, mm:MapObject )
 	{
-		tm.addPolyomino( control.form, _sitPlace[0], _sitPlace[1] );
+		tm.addPolyomino( control.form, _sitPlace[0], _sitPlace[1], mm );
 		graphicGhost.visible = false;
 		graphicGhost.remove();
+		
+		// test
+		graphicFinal.visible = false;
+		graphicFinal.remove();
 	}
 	
 	public function rot( dir:Dir )

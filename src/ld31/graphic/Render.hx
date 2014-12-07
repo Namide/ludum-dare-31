@@ -19,6 +19,8 @@ class Render
 
 	var _onInit:Void->Void;
 	
+	public var map:MapObject;
+	
 	//var _rotTween;
 	
 	public function new(callb:Void->Void)
@@ -83,7 +85,7 @@ class Render
 		bg.setPos( Tilemap.getNeutralX(), Tilemap.getNeutralY(), -0.01 );
 		
 		
-		
+		map = new MapObject( s3d );
 		_onInit();
 		
 		

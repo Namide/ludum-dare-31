@@ -3,6 +3,7 @@ package ld31.graphic;
 import h3d.mat.MeshMaterial;
 import h3d.scene.Mesh;
 import ld31.gameplay.Tilemap;
+import ld31.graphic.OutShader;
 
 /**
  * ...
@@ -11,14 +12,98 @@ import ld31.gameplay.Tilemap;
 class CubeMesh extends Mesh
 {
 
-	static var _matN:MeshMaterial;
-	static var _matR:MeshMaterial;
-	static var _matG:MeshMaterial;
-	static var _matB:MeshMaterial;
+	static var _MAT_BLACK:MeshMaterial;
+	static public function getMatBlack()
+	{
+		if ( _MAT_BLACK == null )
+		{
+			_MAT_BLACK = new MeshMaterial();
+			_MAT_BLACK.color.setColor(0x000000); 
+		}
+		return _MAT_BLACK;
+	}
 	
-	static var _matRG:MeshMaterial;
-	static var _matGG:MeshMaterial;
-	static var _matBG:MeshMaterial;
+	static var _MAT_R:MeshMaterial;
+	static public function getMatR()
+	{
+		if ( _MAT_R == null )
+		{
+			_MAT_R = new MeshMaterial();
+			_MAT_R.color.setColor(0xff0099); 
+		}
+		return _MAT_R;
+	}
+	
+	static var _MAT_G:MeshMaterial;
+	static public function getMatG()
+	{
+		if ( _MAT_G == null )
+		{
+			_MAT_G = new MeshMaterial();
+			_MAT_G.color.setColor(0x99ff00); 
+		}
+		return _MAT_G;
+	}
+	
+	static var _MAT_B:MeshMaterial;
+	static public function getMatB()
+	{
+		if ( _MAT_B == null )
+		{
+			_MAT_B = new MeshMaterial();
+			_MAT_B.color.setColor(0x0099ff); 
+		}
+		return _MAT_B;
+	}
+	
+	static var _MAT_OUT:MeshMaterial;
+	static public function getMatOut()
+	{
+		if ( _MAT_OUT == null )
+		{
+			_MAT_OUT = new MeshMaterial();
+			_MAT_OUT.mainPass.addShader( new OutShader() );
+			_MAT_OUT.color.setColor(0x9900ff); 
+		}
+		return _MAT_OUT;
+	}
+	
+	static var _MAT_R_G:MeshMaterial;
+	static public function getMatRG()
+	{
+		if ( _MAT_R_G == null )
+		{
+			_MAT_R_G = new MeshMaterial();
+			_MAT_R_G.mainPass.addShader( new GhostShader() );
+			_MAT_R_G.color.setColor(0xff0099); 
+		}
+		return _MAT_R_G;
+	}
+	
+	static var _MAT_G_G:MeshMaterial;
+	static public function getMatGG()
+	{
+		if ( _MAT_G_G == null )
+		{
+			_MAT_G_G = new MeshMaterial();
+			_MAT_G_G.mainPass.addShader( new GhostShader() );
+			_MAT_G_G.color.setColor(0x99ff00); 
+		}
+		return _MAT_G_G;
+	}
+	
+	static var _MAT_B_G:MeshMaterial;
+	static public function getMatBG()
+	{
+		if ( _MAT_B_G == null )
+		{
+			_MAT_B_G = new MeshMaterial();
+			_MAT_B_G.mainPass.addShader( new GhostShader() );
+			_MAT_B_G.color.setColor(0x0099ff); 
+		}
+		return _MAT_B_G;
+	}
+	
 	
 	public function new( type:Int, ?parent, ghost:Bool = false ) 
 	{
@@ -27,75 +112,16 @@ class CubeMesh extends Mesh
 	
 	static function getMat( type:Int, ghost:Bool ):MeshMaterial
 	{
-		if ( type == Tilemap.TYPE_R )
-		{
-			if ( ghost )
-			{
-				if ( _matRG == null )
-				{
-					_matRG = new MeshMaterial();
-					_matRG.mainPass.addShader( new GhostShader() );
-					_matRG.color.setColor(0xff0099); 
-				}
-				return _matRG;
-			}
-			
-			if ( _matR == null )
-			{
-				_matR = new MeshMaterial();
-				_matR.color.setColor(0xff0099); 
-			}
-			return _matR;
-		}
-		else if ( type == Tilemap.TYPE_G )
-		{
-			if ( ghost )
-			{
-				if ( _matGG == null )
-				{
-					_matGG = new MeshMaterial();
-					_matGG.mainPass.addShader( new GhostShader() );
-					_matGG.color.setColor(0x99ff00); 
-				}
-				return _matGG;
-			}
-			
-			if ( _matG == null )
-			{
-				_matG = new MeshMaterial();
-				//_matG.mainPass.addShader( new GhostShader() );
-				_matG.color.setColor(0x99ff00); 
-			}
-			return _matG;
-		}
-		else if ( type == Tilemap.TYPE_B )
-		{
-			if ( ghost )
-			{
-				if ( _matBG == null )
-				{
-					_matBG = new MeshMaterial();
-					_matBG.mainPass.addShader( new GhostShader() );
-					_matBG.color.setColor(0x0099ff); 
-				}
-				return _matBG;
-			}
-			
-			if ( _matB == null )
-			{
-				_matB = new MeshMaterial();
-				//_matB.mainPass.addShader( new GhostShader() );
-				_matB.color.setColor(0x0099ff); 
-			}
-			return _matB;
-		}
+		if ( type == Tilemap.TYPE_R && ghost ) return getMatRG();
+		if ( type == Tilemap.TYPE_R ) return getMatR();
 		
-		if ( _matN == null )
-		{
-			_matN = new MeshMaterial();
-			_matN.color.setColor(0x000000); 
-		}
-		return _matN;
+		if ( type == Tilemap.TYPE_G && ghost ) return getMatGG();
+		if ( type == Tilemap.TYPE_G ) return getMatG();
+		
+		if ( type == Tilemap.TYPE_B && ghost ) return getMatBG();
+		if ( type == Tilemap.TYPE_B ) return getMatB();
+		
+		return getMatBlack();
 	}
 	
 	

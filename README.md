@@ -23,8 +23,6 @@ Details
 Todo list
 ---
 
-* big tilemap
-* red out squares
 * score system and layout
 * main screen?
 * tutorial to play
