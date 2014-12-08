@@ -128,7 +128,6 @@ class Game
 		else if ( _msgNum == 4 )
 		{
 			_msgNum++;
-			//_graphic.addMsg( _msgNum, 2.0 );
 		}
 		
 		if ( Key.isReleased( Key.F11 ) ) _graphic.engine.fullScreen = true; // F
@@ -154,11 +153,8 @@ class Game
 	{
 		_dir = newDir;
 		_graphic.rot( _dir );
-		if ( _pol != null ) _pol.rot( _dir );
-		//_sound.playSound();
-		// AVOID ORBITAL
-		//_playerControl.vx = 0.0;
-		//_playerControl.vy = 0.2;
+		if ( _pol != null )
+			_pol.rot( _dir );
 	}
 	
 	public function mainLoop()
@@ -175,7 +171,7 @@ class Game
 			_playerControl.updateCollides( col );
 			
 			if ( _pol != null )
-				_pol.updateGhost( _playerControl.x, _playerControl.y, _tm/*, _playerControl.blockControls*/ );
+				_pol.updateGhost( _playerControl.x, _playerControl.y, _tm );
 			
 			var newDir = Dir.getDir( _playerControl.x, _playerControl.y, _tm, _dir );
 			if ( !_dir.is( newDir.get() ) && (haxe.Timer.stamp() - _lastDirChange) > 0.2 )
@@ -188,7 +184,6 @@ class Game
 			{
 				_playerMesh.x = _playerControl.x;
 				_playerMesh.y = _playerControl.y;
-				//if ( Math.random() < 0.01 ) trace( _playerControl.x, _playerControl.y, _playerMesh.x, _playerMesh.y );
 				_graphic.refresh();
 			}
 			
@@ -239,16 +234,7 @@ class Game
 	{
 		_restart = null;
 		hxd.System.setLoop(function() { } );
-		/*_graphic.s2d.dispose();
-		_graphic.s3d.dispose();
-		_graphic.engine.dispose();
-		CubeMesh.DISPOSE();
-		CubePrim.DISPOSE();*/
-		//_graphic.s3d.remove();
-		//_graphic.s2d.remove();
-		
 		TweenX.clear();
-		
 		_graphic.dispose();
 	}
 	

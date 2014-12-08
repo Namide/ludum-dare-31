@@ -7,60 +7,6 @@ import ld31.Main;
 import ld31.math.Contacts;
 import ld31.math.Dir;
 import ld31.math.Vec2d;
-/*
-class Orbital
-{
-	//var _x:Float;
-	//var _y:Float;
-	var _d:Float;
-	var _a:Float;
-	var _v:Float;
-	var _t:Float;
-	
-	public function new( pc:PlayerControl, t:Float )
-	{
-		var p = new Point( pc.x, pc.y );
-		p = p.sub( Tilemap.getNeutralPos() );
-		
-		_v = getV( p, new Point( pc.x + pc.vx, pc.y + pc.vy ).sub( Tilemap.getNeutralPos() ) );
-		trace(_v);
-		
-		_a = hxd.Math.atan2( p.y, p.x );
-		_d = p.length();
-		_t = t;
-	}
-	
-	public inline function getV( p1:Point, p2:Point ):Float
-	{
-		var a1 = hxd.Math.atan2( p1.y, p1.x );
-		var a2 = hxd.Math.atan2( p2.y, p2.x );
-		var v = a2 - a1;
-		if ( hxd.Math.abs(v) < 0.1 )
-		{
-			v = (v < 0)? -0.1:0.1;
-		}
-		return v;
-	}
-	
-	public function update ( pc:PlayerControl, t:Float )
-	{
-		var newT = (t - _t);
-		
-		var p = new Point();
-		_a += _v;
-		p.x = _d * Math.cos( _a );
-		p.y = _d * Math.sin( _a );
-		
-		p = p.add( Tilemap.getNeutralPos() );
-		
-		pc.x = p.x;
-		pc.y = p.y;
-		pc.vx = 0;
-		pc.vy = 0;
-		_d *= 0.99;
-	}
-}
-*/
 
 /**
  * ...
@@ -68,18 +14,13 @@ class Orbital
  */
 class PlayerControl
 {
-
-	//var _dir:Int = 0;
-	
 	var _run:Vec2d;
 	var _jump:Vec2d;
 	var _g:Vec2d;
 	var _airSlowler:Float;
 	var _friction:Float;
-	//var _maxXV:Float;
 	
 	var _lastTOnGround:Float;
-	//var _orbital:Orbital;
 	
 	public var x:Float;
 	public var y:Float;
@@ -102,13 +43,7 @@ class PlayerControl
 		_airSlowler = 0.2;
 		_lastTOnGround = haxe.Timer.stamp();
 		blockControls = false;
-		//_maxXV = 0.3;
 	}
-	
-	/*public var changeDir( dir )
-	{
-		_dir = ld31.math.Dir.normDir( dir );
-	}*/
 	
 	public function updateCollides( c:Contacts )
 	{
@@ -133,14 +68,10 @@ class PlayerControl
 			if ( vx > 0 ) vx = 0;
 			x = Math.round(x);
 		}
-		
-		//if ( Math.random() < 0.01 ) trace( c );
 	}
 	
 	public function updateControls( col:Contacts, dir:Dir )
 	{
-		//var orbital = false;
-		
 		var r = _run.cloneAndRot( dir );
 		var g = _g.cloneAndRot( dir );
 		var j = _jump.cloneAndRot( dir );
@@ -193,21 +124,7 @@ class PlayerControl
 		if ( dir.isHorizontal() )
 			vy *= _friction;
 		else
-			vx *= _friction;
-		
-		
-		
-		
-		/*if ( 	col.on != Tilemap.TYPE_EMPTY ||
-				c.top != Tilemap.TYPE_EMPTY ||
-				c.right != Tilemap.TYPE_EMPTY ||
-				c.bottom != Tilemap.TYPE_EMPTY ||
-				c.left != Tilemap.TYPE_EMPTY )
-		{
-			_lastTOnGround = haxe.Timer.stamp();
-			_orbital = null;
-		}*/
-			
+			vx *= _friction;			
 		
 		
 		// CONTROLS
@@ -238,7 +155,6 @@ class PlayerControl
 		}
 		else
 		{
-			//r.scale( _airSlowler );
 			if (!blockControls)
 			{
 				if ( Key.isDown(Key.LEFT) )
@@ -257,12 +173,8 @@ class PlayerControl
 			
 			// AVOID ORBITAL
 			var fG = (haxe.Timer.stamp() - _lastTOnGround);
-			if ( fG > 0.5 /*&& _orbital == null*/ )
+			if ( fG > 0.5 )
 			{
-				/*var p = Tilemap.getNeutralPos();
-				x += (p.x - x) * fG;
-				y += (p.y - y) * fG;*/
-				//_orbital = new Orbital( this, haxe.Timer.stamp());
 				return restartPos();
 			}
 			
@@ -271,32 +183,8 @@ class PlayerControl
 			
 		}
 		
-		/*if ( dir.isHorizontal() )
-			vy = (vy<-_maxXV) ? -_maxXV : (vy>_maxXV) ? _maxXV : vy;
-		else
-			vx = (vx<-_maxXV) ? -_maxXV : (vx>_maxXV) ? _maxXV : vx;*/
-		
-		
-		
-		//if (Math.random() < 0.1) trace( x, y, vx, vy );
-		//trace(vx, vy);
-		
 		if ( !blockControls && hxd.Key.isDown( hxd.Key.DOWN ) && onAction != null )
 			onAction();
-		
-		
-		//hxd.Key.isDown(hxd.Key.CTRL) && hxd.Key.isPressed(hxd.Key.F12)
-		
-		/*if ( hxd.Math.abs( x ) > Tilemap.SIDE_NUM_X ||
-			 hxd.Math.abs( y ) > Tilemap.SIDE_NUM_X )
-		{
-			return restartPos();
-		}*/
-		
-		/*if ( _orbital != null )
-		{
-			_orbital.update( this, haxe.Timer.stamp() );
-		}*/
 		
 	}
 	
@@ -317,7 +205,8 @@ class PlayerControl
 			if ( maximum && v0 < v1 ) 
 			{
 				v0 += v1 * acc;
-				if ( v0 > v1 ) v0 = v1;
+				if ( v0 > v1 )
+					v0 = v1;
 			}
 			else
 			{
@@ -329,7 +218,8 @@ class PlayerControl
 			if ( maximum && v0 > v1 ) 
 			{
 				v0 += v1 * acc;
-				if ( v0 < v1 ) v0 = v1;
+				if ( v0 < v1 )
+					v0 = v1;
 			}
 			else
 			{

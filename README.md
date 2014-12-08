@@ -22,7 +22,7 @@ Dependencies
 ---
 
 * [Heaps](https://github.com/ncannasse/heaps), a high performance game framework by Nicolas Cannasse
-* [TweenX](http://tweenx.spheresofa.net/en.html), tweens
+* [TweenX](http://tweenx.spheresofa.net/en.html), cross platform tween libraly for Haxe
 
 	
 Details

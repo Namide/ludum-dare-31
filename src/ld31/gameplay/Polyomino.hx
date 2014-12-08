@@ -36,7 +36,6 @@ class Polyomino
 		graphicFinal.visible = false;
 		
 		graphicGhost = new PolyominoObject( control, parent, true );
-		//graphicGhost.visible = false;
 		
 		_sitTime = false;
 		rot( dir );
@@ -48,7 +47,6 @@ class Polyomino
 		graphicGhost.visible = false;
 		graphicGhost.remove();
 		
-		// test
 		graphicFinal.visible = false;
 		graphicFinal.remove();
 	}
@@ -82,48 +80,31 @@ class Polyomino
 		
 		TweenX.to( graphicFinal, {x:_sitPlace[0], y:_sitPlace[1]} )
 				.time( Game.POLYOMINO_TIME_SIT )
-				//.ease( EaseX.circOut )
 				.onFinish( onSitting );
 	}
 	
-	public function updateGhost( x:Float, y:Float, tm:Tilemap/*, forceHide:Bool*/ )
+	public function updateGhost( x:Float, y:Float, tm:Tilemap )
 	{
-		if ( _sitTime ) return;
+		if ( _sitTime )
+			return;
 		
 		var xi = Math.round( x - (control.form[0].length-1) * 0.5 );
 		var yi = Math.round( y - (control.form.length-1) * 0.5 );
 		
-		//if ( xi == _xi && yi == _yi ) return;
 		_xi = xi;
 		_yi = yi;
 		
 		_sitPlace = tm.getPosPolContact( control.form, _dir, xi, yi );
 		_dirSitPlace = _dir.get();
 		
-		if ( _sitPlace == null/* || forceHide && graphicGhost.visible*/ )
+		if ( _sitPlace == null )
 			graphicGhost.visible = false;
 		else
 		{
-			//trace("see", _sitPlace);
-			if ( !graphicGhost.visible ) graphicGhost.visible = true;
-			graphicGhost.setPos( _sitPlace[0]/* - Math.ceil(control.center.x)*/, _sitPlace[1]/* - Math.ceil(control.center.y)*/, 0 );
+			if ( !graphicGhost.visible )
+				graphicGhost.visible = true;
+				
+			graphicGhost.setPos( _sitPlace[0], _sitPlace[1], 0 );
 		}
-		
-		
-		//trace(pos);
-		
-		/*var vertical:Bool = ;
-		var pos:Array<Int> = 
-		if ( vertical )
-		{
-			x -= control.center.x;
-		}
-		else
-		{
-			y -= control.center.y;
-		}*/
-		
-		//var px = 
 	}
-	
 }

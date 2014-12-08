@@ -149,7 +149,6 @@ class Tilemap
 		this.squareIn += squareIn;
 		this.squareOut += squareOut;
 		this.score += squareIn * 10 + squareOut;
-		//squareMax = squareIn + squareOut;
 	}
 	
 	public function addPolyomino( form:Array<Array<Int>>, x:Int, y:Int, mm:MapObject )

@@ -66,7 +66,7 @@ class Dir
 	
 	public static function getDir( playerX:Float, playerY:Float, tm:Tilemap, lastDir:Dir = null ):Dir
 	{
-		var playerSize:Float = 1;//0.25;
+		var playerSize:Float = 1;
 		
 		if ( lastDir.is( Dir.DIR_UP ) || lastDir.is( Dir.DIR_DOWN ) )
 		{
@@ -81,30 +81,6 @@ class Dir
 		}
 		
 		return lastDir;
-		
-		/*var d:Dir = new Dir();
-		var x = playerX - Tilemap.getNeutralX();
-		var y = playerY - Tilemap.getNeutralY();
-		
-		
-		if ( y > 0 && y >= hxd.Math.abs(x) )
-		{
-			d.set( DIR_DOWN );
-		}
-		else if ( y < 0 && y <= -hxd.Math.abs(x) )
-		{
-			d.set( DIR_UP );
-		}
-		else if ( x >= 0 && x >= hxd.Math.abs(y) )
-		{
-			d.set( DIR_RIGHT );
-		}
-		else if ( x <= 0 && x <= -hxd.Math.abs(y) )
-		{
-			d.set( DIR_LEFT );
-		}
-		
-		return d;*/
 	}
 	
 	public function toString():String

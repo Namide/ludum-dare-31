@@ -33,23 +33,8 @@ class Render
 	public function new(callb:Void->Void)
 	{
 		_onInit = callb;
-		/*try
-		{
-			if ( h3d.Engine.getCurrent() != null )
-			{
-				this.engine = h3d.Engine.getCurrent();
-				setup();
-			}
-		}
-		catch (e:Dynamic)
-		{
-			this.engine = new h3d.Engine();
-			engine.onReady = setup;
-		}*/
 		this.engine = new h3d.Engine();
-		engine.onReady = setup;
-		//engine.
-		
+		engine.onReady = setup;		
 		engine.init();
 	}
 
@@ -57,10 +42,6 @@ class Render
 	{
 		engine.onReady = null;
 		engine.onResized = null;
-		
-		//s3d.remove();
-		//s2d.remove();
-		//engine.dispose();
 	}
 	
 	public function rot( dir:Dir )
@@ -79,8 +60,6 @@ class Render
 		TweenX.to( s3d.camera.up, newPos )
 				.time( 0.5 )
 				.ease( EaseX.circOut );
-				//.onFinish( function():Void { sm.sysGraphic.camera2d.display.removeChild( display ); } );
-		//s3d.camera.up.set( 0., -1., 0. );
 	}
 	
 	var _font:h2d.Font;
@@ -90,8 +69,6 @@ class Render
 		if ( _font == null )
 		{
 			_font = hxd.Res.MontserratBold.toFont();
-			//hxd.Res.MontserratBold.build(32);
-			//hxd.Res.MontserratBold.toFont();
 			
 			var title = new h2d.Text(_font, s2d);
 			title.textColor = 0xFFFFFF;
@@ -121,17 +98,7 @@ class Render
 			var prc = Math.floor(100 * (tm.squareIn + tm.squareOut) / tm.squareMax);
 			s += prc + "%";
 			_score.text = Std.string(s);
-			//trace( prc, Math.round(prc));
 		}
-		
-		/*var tf = new h2d.Text(font, s2d);
-		tf.textColor = 0xFFFFFF;
-		tf.dropShadow = { dx : 0.5, dy : 0.5, color : 0xFF0000, alpha : 0.8 };
-		tf.text = "Héllò h2d !";
-
-		tf.y = 20;
-		tf.x = 20;
-		tf.scale(7);*/
 	}
 	
 	function onResize() {
@@ -150,19 +117,12 @@ class Render
 		s3d.addPass(s2d);
 		
 		engine.backgroundColor = 0x000000;
-		//engine.setRenderZone(0, 0, 1280, 720);
 		
 		var p = Tilemap.getNeutralPos();
 		s3d.camera.zoom = 4;
 		s3d.camera.up.set( 0., -1., 0. );
 		s3d.camera.pos.set( p.x, p.y, 0.5 * (Tilemap.SIDE_NUM_X + Tilemap.SIDE_NUM_Y) * s3d.camera.zoom );
 		s3d.camera.target.set( p.x, p.y );
-		//s3d.camera.viewX = (1280 - 720) * 0.5;
-		//trace(s3d.camera.viewX);
-		//trace(s3d.camera.viewX = 0.5 * ( 1 - 1280 / 720 ));
-		//s3d.camera.viewX = 1-1280/720;
-		//s3d.camera.viewY = -0.05;
-		//s3d.camera.viewX = -0.44;
 		
 		var bg = new TimerObject( s3d );
 		bg.scaleX = Tilemap.SIDE_NUM_X;
@@ -172,13 +132,10 @@ class Render
 		
 		map = new MapObject( s3d );
 		_onInit();
-		
-		
 	}
 	
 	public inline function refresh()
 	{
-		//s2d.checkEvents();
 		engine.render(s3d);
 	}
 	
@@ -204,12 +161,8 @@ class Render
 		else
 			return;
 		
-		//_tile.getTexture().mipMap = MipMap.Linear;
-		//_tile.getTexture().realloc();
-		
 		_tile = _tile.center();
 		_msg = new h2d.Bitmap(_tile, s2d);
-		// move its position
 		_msg.x = 1024 * 0.5;
 		_msg.y = 720 * 0.7;
 		
@@ -220,33 +173,4 @@ class Render
 						.onFinish( function():Void { addMsg(-1); } );
 		}
 	}
-
-	/*function mainLoop() {
-		hxd.Timer.update();
-		s2d.checkEvents();
-		update(hxd.Timer.tmod);
-		s2d.setElapsedTime(Timer.tmod/60);
-		s3d.setElapsedTime(Timer.tmod / 60);
-		#if debug
-		if( hxd.Key.isDown(hxd.Key.CTRL) && hxd.Key.isPressed(hxd.Key.F12) ) {
-			var driver = engine.driver;
-			var old = driver.logEnable;
-			var log = new h3d.impl.LogDriver(driver);
-			log.logLines = [];
-			@:privateAccess engine.driver = log;
-			try {
-				engine.render(s3d);
-			} catch( e : Dynamic ) {
-				log.logLines.push(Std.string(e));
-			}
-			driver.logEnable = old;
-			@:privateAccess engine.driver = driver;
-			hxd.File.saveBytes("log.txt", haxe.io.Bytes.ofString(log.logLines.join("\n")));
-		} else
-		#end
-			engine.render(s3d);
-	}*/
-
-	/*function update( dt : Float ) {
-	}*/
 }

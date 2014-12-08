@@ -15,34 +15,16 @@ class CubePrim extends Polygon
 	
 	public function new()
 	{
-		//var z = 0.5;
-		
 		var p = [
-			/*new Point(-.5, -.5, -z),
-			new Point( .5, -.5, -z),
-			new Point(-.5, .5, -z),*/
 			new Point(-.5, -.5, 0),
-			//new Point( .5, .5, -z),
 			new Point( .5, -.5, 0),
 			new Point(-.5, .5, 0),
-			new Point( .5, .5, 0),
+			new Point( .5, .5, 0)
 		];
 		var idx = new hxd.IndexBuffer();
 		idx.push(0); idx.push(1); idx.push(2);
 		idx.push(2); idx.push(1); idx.push(3);
 		
-		/*idx.push(0); idx.push(1); idx.push(5);
-		idx.push(0); idx.push(5); idx.push(3);
-		idx.push(1); idx.push(4); idx.push(7);
-		idx.push(1); idx.push(7); idx.push(5);
-		idx.push(3); idx.push(5); idx.push(7);
-		idx.push(3); idx.push(7); idx.push(6);
-		idx.push(0); idx.push(6); idx.push(2);
-		idx.push(0); idx.push(3); idx.push(6);
-		idx.push(2); idx.push(7); idx.push(4);
-		idx.push(2); idx.push(6); idx.push(7);
-		idx.push(0); idx.push(4); idx.push(1);
-		idx.push(0); idx.push(2); idx.push(4);*/
 		super(p, idx);
 	}
 
@@ -55,18 +37,8 @@ class CubePrim extends Polygon
 		var o = new UV(1, 0);
 
 		uvs = [
-			/*z, x, o,
-			z, o, y,
 			x, z, y,
-			x, y, o,*/
-			x, z, y,
-			x, y, o,
-			/*z, o, x,
-			z, y, o,
-			x, y, z,
-			x, o, y,
-			z, o, x,
-			z, y, o,*/
+			x, y, o
 		];
 	}
 	
