@@ -42,6 +42,10 @@ class Tilemap
 		squareMax = SIDE_NUM_X * SIDE_NUM_Y - 1;
 		bounds = new Bounds();
 		updateBB();
+		
+		squareIn = 0;
+		squareOut = 0;
+		score = 0;
 	}
 	
 	function updateBB()

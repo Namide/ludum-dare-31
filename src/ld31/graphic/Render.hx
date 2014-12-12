@@ -10,8 +10,6 @@ import h3d.mat.Data.MipMap;
 import hxd.Res;
 import ld31.gameplay.Tilemap;
 import ld31.math.Dir;
-//import tweenx909.EaseX;
-//import tweenx909.TweenX;
 
 /**
  * ...
@@ -27,8 +25,6 @@ class Render
 	var _onInit:Void->Void;
 	
 	public var map:MapObject;
-	
-	//var _rotTween;
 	
 	public function new(callb:Void->Void)
 	{
@@ -57,10 +53,6 @@ class Render
 		else if ( dir.is( Dir.DIR_LEFT ) )
 			newPos.x = -1;
 		
-		/*TweenX.to( s3d.camera.up, newPos )
-				.time( 0.5 )
-				.ease( EaseX.circOut );*/
-		
 		motion.Actuate.tween (s3d.camera.up, 0.5, newPos ).ease (motion.easing.Sine.easeOut);
 
 	}
@@ -85,6 +77,9 @@ class Render
 			author.text = "a game by Namide\n(Damien Doussaud)\nwww.namide.com";
 			author.setPos( 1024 - (author.textWidth + 32), 720 - (author.textHeight + 32) );
 			
+			#if js
+				resize();
+			#end
 		}
 		else if ( _score == null )
 		{
@@ -92,7 +87,11 @@ class Render
 			_score.textColor = 0xFFFFFF;
 			_score.textAlign = Align.Right;
 			_score.maxWidth = 256;
-			_score.setPos( 1024 - (_score.maxWidth+32) , 32 );
+			_score.setPos( 1024 - (_score.maxWidth + 32) , 32 );
+			
+			#if js
+				resize();
+			#end
 		}
 
 		if ( _score != null && tm != null )
@@ -104,18 +103,37 @@ class Render
 		}
 	}
 	
-	function onResize() {
-	}
-
-	function setup() {
-		engine.onResized = function() {
-			s2d.checkResize();
-			onResize();
+	
+	#if js
+		function resize( d:Dynamic = null )
+		{
+			var e = js.Browser.document.querySelector("#webgl");
+			e.style.width = Std.string( js.Browser.window.innerWidth ) + "px";
+			e.style.height = Std.string( Math.round( js.Browser.window.innerHeight * 720 / 1024 ) ) + "px";
 			
+			for ( e in s2d )
+			{
+				var p = engine.width / engine.height;
+				p /= 1024 / 720;
+				e.scaleY = p;
+			}
+		}
+	#end
+	
+	function setup()
+	{
+		engine.onResized = function()
+		{
+			s2d.checkResize();
+			#if js
+				resize();
+			#end
 		};
 		s3d = new h3d.scene.Scene();
 		s2d = new h2d.Scene();
 		s2d.setFixedSize(1024, 720);
+		engine.autoResize = true;
+		//s3d.setScale( 1024 / 768 );
 		
 		s3d.addPass(s2d);
 		
@@ -135,6 +153,11 @@ class Render
 		
 		map = new MapObject( s3d );
 		_onInit();
+		
+		#if js
+			js.Browser.window.onresize = resize;
+			resize();
+		#end
 	}
 	
 	public inline function refresh()
@@ -169,11 +192,12 @@ class Render
 		_msg.x = 1024 * 0.5;
 		_msg.y = 720 * 0.7;
 		
+		#if js
+			resize();
+		#end
+		
 		if ( time > 0 )
 		{
-			/*TweenX.to( 	this, {} )
-						.time( 2 )
-						.onFinish( function():Void { addMsg(-1); } );*/
 			motion.Actuate.tween (this, 2, {} ).onComplete( addMsg, [-1] );
 		}
 	}

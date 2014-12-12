@@ -13,8 +13,6 @@ import ld31.graphic.Render;
 import ld31.math.Dir;
 import motion.Actuate;
 import motion.easing.Sine;
-//import tweenx909.EaseX;
-//import tweenx909.TweenX;
 
 /**
  * ...
@@ -145,10 +143,6 @@ class Game
 	{
 		_playerMesh.z = 50;
 		_playerControl.blockControls = true;
-		/*TweenX.to( _playerMesh, {z:0} )
-				.time( 0.5 )
-				.ease( EaseX.circIn )
-				.onFinish( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );*/
 		motion.Actuate.tween (_playerMesh, 0.5, {z:0} ).ease (motion.easing.Sine.easeIn).onComplete ( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );
 	}
 	
@@ -237,7 +231,6 @@ class Game
 	{
 		_restart = null;
 		hxd.System.setLoop(function() { } );
-		//TweenX.clear();
 		motion.Actuate.reset();
 		_graphic.dispose();
 	}
