@@ -3,6 +3,7 @@ Polyfill
 
 * Game created in one weekend during the Ludum Dare #31
 * Theme: "Entire Game on One Screen"
+* This branche is a post compo compatible JavaScript 
 
 
 How to play
@@ -22,7 +23,7 @@ Dependencies
 ---
 
 * [Heaps](https://github.com/ncannasse/heaps), a high performance game framework by Nicolas Cannasse
-* [TweenX](http://tweenx.spheresofa.net/en.html), cross platform tween libraly for Haxe
+* [actuate](https://github.com/openfl/actuate), flexible, fast tween library 
 
 	
 Details
@@ -30,5 +31,6 @@ Details
 
 * Language: Haxe 3
 * FlashPlayer: >11.8
+* JavaScript (WebGL)
 * Samples and music created with Soundation
  

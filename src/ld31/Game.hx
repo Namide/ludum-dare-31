@@ -11,8 +11,10 @@ import ld31.graphic.PlayerMesh;
 import ld31.graphic.PolyominoObject;
 import ld31.graphic.Render;
 import ld31.math.Dir;
-import tweenx909.EaseX;
-import tweenx909.TweenX;
+import motion.Actuate;
+import motion.easing.Sine;
+//import tweenx909.EaseX;
+//import tweenx909.TweenX;
 
 /**
  * ...
@@ -143,10 +145,11 @@ class Game
 	{
 		_playerMesh.z = 50;
 		_playerControl.blockControls = true;
-		TweenX.to( _playerMesh, {z:0} )
+		/*TweenX.to( _playerMesh, {z:0} )
 				.time( 0.5 )
 				.ease( EaseX.circIn )
-				.onFinish( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );
+				.onFinish( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );*/
+		motion.Actuate.tween (_playerMesh, 0.5, {z:0} ).ease (motion.easing.Sine.easeIn).onComplete ( function():Void { _playerControl.blockControls = false; _sound.playSound(); } );
 	}
 	
 	public function changeDir(newDir:Dir)
@@ -234,7 +237,8 @@ class Game
 	{
 		_restart = null;
 		hxd.System.setLoop(function() { } );
-		TweenX.clear();
+		//TweenX.clear();
+		motion.Actuate.reset();
 		_graphic.dispose();
 	}
 	
