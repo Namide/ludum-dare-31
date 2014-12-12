@@ -4,8 +4,8 @@ import ld31.gameplay.Tilemap;
 import ld31.graphic.MapObject;
 import ld31.graphic.PolyominoObject;
 import ld31.math.Dir;
-//import tweenx909.EaseX;
-//import tweenx909.TweenX;
+import tweenx909.EaseX;
+import tweenx909.TweenX;
 
 /**
  * ...
@@ -78,10 +78,9 @@ class Polyomino
 		
 		graphicFinal.setPos( x0, y0, 0 );
 		
-		/*TweenX.to( graphicFinal, {x:_sitPlace[0], y:_sitPlace[1]} )
+		TweenX.to( graphicFinal, {x:_sitPlace[0], y:_sitPlace[1]} )
 				.time( Game.POLYOMINO_TIME_SIT )
-				.onFinish( onSitting );*/
-		motion.Actuate.tween (graphicFinal, Game.POLYOMINO_TIME_SIT, {x:_sitPlace[0], y:_sitPlace[1]} ).onComplete( onSitting );
+				.onFinish( onSitting );
 	}
 	
 	public function updateGhost( x:Float, y:Float, tm:Tilemap )

@@ -10,8 +10,8 @@ import h3d.mat.Data.MipMap;
 import hxd.Res;
 import ld31.gameplay.Tilemap;
 import ld31.math.Dir;
-//import tweenx909.EaseX;
-//import tweenx909.TweenX;
+import tweenx909.EaseX;
+import tweenx909.TweenX;
 
 /**
  * ...
@@ -57,12 +57,9 @@ class Render
 		else if ( dir.is( Dir.DIR_LEFT ) )
 			newPos.x = -1;
 		
-		/*TweenX.to( s3d.camera.up, newPos )
+		TweenX.to( s3d.camera.up, newPos )
 				.time( 0.5 )
-				.ease( EaseX.circOut );*/
-		
-		motion.Actuate.tween (s3d.camera.up, 0.5, newPos ).ease (motion.easing.Sine.easeOut);
-
+				.ease( EaseX.circOut );
 	}
 	
 	var _font:h2d.Font;
@@ -171,10 +168,9 @@ class Render
 		
 		if ( time > 0 )
 		{
-			/*TweenX.to( 	this, {} )
+			TweenX.to( 	this, {} )
 						.time( 2 )
-						.onFinish( function():Void { addMsg(-1); } );*/
-			motion.Actuate.tween (this, 2, {} ).onComplete( addMsg, [-1] );
+						.onFinish( function():Void { addMsg(-1); } );
 		}
 	}
 }
